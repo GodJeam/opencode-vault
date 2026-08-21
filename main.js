@@ -1,0 +1,2317 @@
+"use strict";
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+
+// src/main.ts
+var main_exports = {};
+__export(main_exports, {
+  default: () => OpencodePlugin
+});
+module.exports = __toCommonJS(main_exports);
+var import_obsidian5 = require("obsidian");
+
+// src/chatView.ts
+var import_obsidian3 = require("obsidian");
+
+// src/settings.ts
+var import_obsidian = require("obsidian");
+var DEFAULT_SETTINGS = {
+  binaryPath: "opencode",
+  model: "opencode-go/deepseek-v4-flash",
+  agent: "",
+  autoApprove: true,
+  showThinking: false,
+  showToolIO: true,
+  sessionId: "",
+  pinned: [],
+  tikzEnabled: true,
+  tikzEngine: "auto",
+  tikzLatexBin: "",
+  tikzDvisvgmBin: "",
+  tikzExtraPreamble: "",
+  tikzLivePreview: true
+};
+var OpencodeSettingTab = class extends import_obsidian.PluginSettingTab {
+  constructor(app, plugin) {
+    super(app, plugin);
+    this.plugin = plugin;
+  }
+  display() {
+    const { containerEl } = this;
+    containerEl.empty();
+    containerEl.createEl("h2", { text: "Opencode Vault" });
+    new import_obsidian.Setting(containerEl).setName("Percorso binario opencode").setDesc(
+      "Comando o percorso completo dell'eseguibile. Su Windows con npm globale di solito basta 'opencode' (viene usato lo shim .cmd). In caso di problemi usa il percorso completo, es. C:/Users/giuli/AppData/Roaming/npm/opencode.cmd"
+    ).addText(
+      (text) => text.setPlaceholder("opencode").setValue(this.plugin.settings.binaryPath).onChange(async (value) => {
+        this.plugin.settings.binaryPath = value.trim() || "opencode";
+        await this.plugin.saveSettings();
+      })
+    );
+    const modelSetting = new import_obsidian.Setting(containerEl).setName("Modello").setDesc(
+      "Seleziona un modello dalla lista di opencode. Lo stesso selettore \xE8 disponibile anche nella barra della chat. Il default usa il provider OpenCode Go (lo stesso dell'app desktop)."
+    );
+    modelSetting.addDropdown((dd) => {
+      this.populateModelDropdown(dd);
+    });
+    new import_obsidian.Setting(containerEl).setName("Aggiorna elenco modelli").setDesc("Ricarica la lista dei modelli disponibili da opencode.").addButton(
+      (btn) => btn.setButtonText("Aggiorna").onClick(() => {
+        this.display();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("Agent").setDesc("Agente opencode da usare (es. build, plan). Lascia vuoto per il default.").addText(
+      (text) => text.setPlaceholder("es. build").setValue(this.plugin.settings.agent).onChange(async (value) => {
+        this.plugin.settings.agent = value.trim();
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("Session ID").setDesc(
+      "ID della sessione persistente usata per la chat. Viene gestito automaticamente dal plugin: la prima volta parte una sessione nuova, poi viene riusata. Vuoto = nuova sessione al prossimo messaggio."
+    ).addText(
+      (text) => text.setPlaceholder("(automatico)").setValue(this.plugin.settings.sessionId).onChange(async (value) => {
+        this.plugin.settings.sessionId = value.trim();
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("Azzera sessione").setDesc("Cancella la sessione salvata e riparte da zero al prossimo messaggio.").addButton(
+      (btn) => btn.setButtonText("Azzera").onClick(async () => {
+        this.plugin.settings.sessionId = "";
+        await this.plugin.saveSettings();
+        new import_obsidian.Notice("Sessione azzerata: il prossimo messaggio partir\xE0 da una nuova sessione.");
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("Auto-approve permessi").setDesc(
+      "Concede automaticamente i permessi degli strumenti (bash, edit file, ecc.). In modalit\xE0 non interattiva opencode negherebbe tutto senza questo flag. Disattivalo per maggiore sicurezza."
+    ).addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.autoApprove).onChange(async (value) => {
+        this.plugin.settings.autoApprove = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("Mostra ragionamento").setDesc("Mostra i blocchi di reasoning del modello (usa il flag --thinking).").addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.showThinking).onChange(async (value) => {
+        this.plugin.settings.showThinking = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("Mostra dettagli degli strumenti").setDesc(
+      "Mostra input e output di ogni strumento eseguito durante la richiesta, in blocchi apribili con un clic."
+    ).addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.showToolIO).onChange(async (value) => {
+        this.plugin.settings.showToolIO = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    containerEl.createEl("h2", { text: "Diagrammi TikZ (MiKTeX)" });
+    new import_obsidian.Setting(containerEl).setName("Render dei blocchi TikZ con TeX locale").setDesc(
+      "Rende i blocchi ```tikz delle note e della chat con il TeX installato sul sistema (MiKTeX). Supporta TUTTE le librerie esterne (pgfplots, circuitikz, tikz-cd, forest, ecc.) che TikZJax non pu\xF2 caricare. Il rendering avviene prima del plugin TikZJax, quindi ha la precedenza."
+    ).addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.tikzEnabled).onChange(async (value) => {
+        this.plugin.settings.tikzEnabled = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("Anteprima in modifica (live preview)").setDesc(
+      "Mostra l'immagine TikZ anche nella modalit\xE0 modifica, sotto il blocco di codice. L'anteprima viene aggiornata automaticamente quando il codice cambia."
+    ).addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.tikzLivePreview).onChange(async (value) => {
+        this.plugin.settings.tikzLivePreview = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("Motore di rendering").setDesc(
+      "auto = prova pdflatex+dvisvgm e ripiega su latex+dvisvgm. 'pdf' \xE8 pi\xF9 compatibile con i pacchetti moderni, 'dvi' \xE8 pi\xF9 tradizionale."
+    ).addDropdown(
+      (dd) => dd.addOption("auto", "Auto (consigliato)").addOption("pdf", "pdflatex + dvisvgm (PDF)").addOption("dvi", "latex + dvisvgm (DVI)").setValue(this.plugin.settings.tikzEngine).onChange(async (value) => {
+        this.plugin.settings.tikzEngine = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("Percorso binario latex/pdflatex").setDesc(
+      "Lascia vuoto per la ricerca automatica nel PATH (consigliato). Usa il percorso completo solo se serve, es. C:/Users/giuli/AppData/Local/Programs/MiKTeX/miktex/bin/x64/pdflatex.exe"
+    ).addText(
+      (text) => text.setPlaceholder("(auto)").setValue(this.plugin.settings.tikzLatexBin).onChange(async (value) => {
+        this.plugin.settings.tikzLatexBin = value.trim();
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("Percorso binario dvisvgm").setDesc("Lascia vuoto per la ricerca automatica nel PATH (consigliato).").addText(
+      (text) => text.setPlaceholder("(auto)").setValue(this.plugin.settings.tikzDvisvgmBin).onChange(async (value) => {
+        this.plugin.settings.tikzDvisvgmBin = value.trim();
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("Preambolo aggiuntivo").setDesc(
+      "Linee da aggiungere al preambolo di ogni rendering. Utile per caricare librerie usate di frequente, es. \\usepackage{pgfplots} oppure \\usetikzlibrary{positioning, arrows.meta}."
+    ).addTextArea(
+      (text) => text.setPlaceholder("\\usepackage{pgfplots}\n\\pgfplotsset{compat=1.18}").setValue(this.plugin.settings.tikzExtraPreamble).onChange(async (value) => {
+        this.plugin.settings.tikzExtraPreamble = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("Testa rendering TikZ").setDesc("Esegue un diagramma di prova con pgfplots, circuitikz e librerie per verificare la configurazione.").addButton(
+      (btn) => btn.setButtonText("Test").onClick(async () => {
+        btn.setDisabled(true);
+        btn.setButtonText("Rendering in corso...");
+        try {
+          await this.plugin.tikzRenderer.render(
+            "\\usepackage{pgfplots}\n\\pgfplotsset{compat=1.18}\n\\usepackage[siunitx]{circuitikz}\n\\usetikzlibrary{positioning, arrows.meta}\n\\begin{tikzpicture}\n\\draw (0,0) to[R=1k] (3,0);\n\\node[draw, right=1cm of {(3,0)}] (b) {OK};\n\\draw[-{Stealth}] (3,0) -- (b);\n\\end{tikzpicture}"
+          );
+          new import_obsidian.Notice("Rendering TikZ riuscito: la configurazione MiKTeX funziona.");
+        } catch (e) {
+          new import_obsidian.Notice(`Errore rendering TikZ: ${e.message}`);
+        } finally {
+          btn.setDisabled(false);
+          btn.setButtonText("Test");
+        }
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("Svuota cache rendering").setDesc("Elimina gli SVG gi\xE0 compilati (utile dopo modifiche al preambolo o per liberare spazio).").addButton(
+      (btn) => btn.setButtonText("Svuota").onClick(() => {
+        this.plugin.tikzRenderer.clearCache();
+        new import_obsidian.Notice("Cache TikZ svuotata.");
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName("Testa connessione").setDesc("Esegue 'opencode --version' per verificare che il binario sia raggiungibile.").addButton(
+      (btn) => btn.setButtonText("Test").onClick(async () => {
+        btn.setDisabled(true);
+        btn.setButtonText("Test in corso...");
+        try {
+          const version = await this.plugin.runner.getVersion();
+          new import_obsidian.Notice(`Opencode trovato: ${version}`);
+        } catch (e) {
+          new import_obsidian.Notice(`Errore: ${e.message}`);
+        } finally {
+          btn.setDisabled(false);
+          btn.setButtonText("Test");
+        }
+      })
+    );
+  }
+  async populateModelDropdown(dd) {
+    const cur = this.plugin.settings.model || DEFAULT_SETTINGS.model;
+    const seen = /* @__PURE__ */ new Set();
+    const addOption = (value, display) => {
+      if (seen.has(value)) return;
+      seen.add(value);
+      dd.addOption(value, display);
+    };
+    addOption("", "(default di opencode)");
+    if (cur) addOption(cur, cur + (cur.includes("/") ? "" : " (personalizzato)"));
+    dd.setValue(cur || "");
+    try {
+      const models = await this.plugin.runner.listModels();
+      for (const m of models) addOption(m, m);
+      dd.setValue(cur || "");
+    } catch (e) {
+      addOption("", `Errore: ${e.message}`);
+    }
+  }
+};
+
+// src/modals.ts
+var import_obsidian2 = require("obsidian");
+var RenameModal = class extends import_obsidian2.Modal {
+  constructor(app, current, onSubmit) {
+    super(app);
+    this.current = current;
+    this.onSubmit = onSubmit;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("h3", { text: "Rinomina sessione" });
+    let input;
+    new import_obsidian2.Setting(contentEl).setName("Nuovo titolo").addText((t) => {
+      input = t.inputEl;
+      t.setValue(this.current);
+      t.inputEl.select();
+    });
+    new import_obsidian2.Setting(contentEl).addButton(
+      (b) => b.setButtonText("Salva").setCta().onClick(() => {
+        if (!input) return;
+        const v = input.value.trim();
+        if (!v) {
+          new import_obsidian2.Notice("Il titolo non pu\xC3\xB2 essere vuoto.");
+          return;
+        }
+        this.onSubmit(v);
+        this.close();
+      })
+    ).addButton((b) => b.setButtonText("Annulla").onClick(() => this.close()));
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+var StatsModal = class extends import_obsidian2.Modal {
+  constructor(app, runner) {
+    super(app);
+    this.runner = runner;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("h3", { text: "Utilizzo token e costi" });
+    const status = contentEl.createDiv({
+      cls: "opencode-stats-loading",
+      text: "Caricamento..."
+    });
+    this.runner.getUsageStats().then((s) => {
+      status.remove();
+      this.renderWindow(contentEl, "Ultime 5 ore", s.h5);
+      this.renderWindow(contentEl, "Ultima settimana", s.week);
+      this.renderWindow(contentEl, "Ultimo mese", s.month);
+    }).catch((e) => {
+      status.setText(`Errore: ${e.message}`);
+    });
+  }
+  renderWindow(container, label, w) {
+    container.createEl("h4", { text: label });
+    new import_obsidian2.Setting(container).setName("Token input").setDesc(w.input.toLocaleString("it-IT"));
+    new import_obsidian2.Setting(container).setName("Token output").setDesc(w.output.toLocaleString("it-IT"));
+    new import_obsidian2.Setting(container).setName("Totale token").setDesc((w.input + w.output).toLocaleString("it-IT"));
+    new import_obsidian2.Setting(container).setName("Costo").setDesc(`${w.cost.toFixed(4)} $`);
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+var ConfirmModal = class extends import_obsidian2.Modal {
+  constructor(app, title, message, confirmLabel, onConfirm) {
+    super(app);
+    this.title = title;
+    this.message = message;
+    this.confirmLabel = confirmLabel;
+    this.onConfirm = onConfirm;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    contentEl.empty();
+    contentEl.createEl("h3", { text: this.title });
+    contentEl.createDiv({ cls: "opencode-confirm-message", text: this.message });
+    new import_obsidian2.Setting(contentEl).addButton(
+      (b) => b.setButtonText(this.confirmLabel).setWarning().onClick(() => {
+        this.onConfirm();
+        this.close();
+      })
+    ).addButton((b) => b.setButtonText("Annulla").onClick(() => this.close()));
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+var FileSuggestModal = class extends import_obsidian2.SuggestModal {
+  constructor(app, onPick) {
+    super(app);
+    this.onPick = onPick;
+    this.setPlaceholder("Cerca un file del vault da allegare...");
+    this.setInstructions([
+      { command: "\xE2\u2020\u2018\xE2\u2020\u201C", purpose: "navigare" },
+      { command: "\xE2\u2020\xB5", purpose: "allegare" },
+      { command: "esc", purpose: "chiudere" }
+    ]);
+  }
+  getItems() {
+    return this.app.vault.getFiles().sort((a, b) => a.path.localeCompare(b.path));
+  }
+  getSuggestions(query) {
+    const q = query.trim().toLowerCase();
+    if (!q) return this.getItems();
+    return this.getItems().filter((f) => f.path.toLowerCase().includes(q));
+  }
+  renderSuggestion(file, el) {
+    el.createEl("div", { text: file.path });
+  }
+  onChooseSuggestion(file) {
+    this.onPick(file);
+  }
+};
+
+// src/chatView.ts
+var CHAT_VIEW_TYPE = "opencode-chat-view";
+var ChatView = class extends import_obsidian3.ItemView {
+  constructor(leaf, plugin) {
+    super(leaf);
+    this.attachments = [];
+    this.currentSessionId = "";
+    this.pendingUser = null;
+    this.currentProc = null;
+    this.running = false;
+    this.context = null;
+    this.renderTimer = null;
+    this.hadStreamError = false;
+    this.stoppedByUser = false;
+    this.lastStderr = "";
+    this.stats = { input: 0, output: 0, total: 0, cost: 0 };
+    this.suggestItems = [];
+    this.suggestIndex = 0;
+    this.suggestOpen = false;
+    this.suggestTrigger = null;
+    this.modelCache = [];
+    this.vaultPaths = null;
+    this.plugin = plugin;
+    this.viewSession = plugin.settings.sessionId;
+  }
+  getViewType() {
+    return CHAT_VIEW_TYPE;
+  }
+  getDisplayText() {
+    return "Opencode chat";
+  }
+  getIcon() {
+    return "bot";
+  }
+  async onOpen() {
+    const container = this.contentEl;
+    container.empty();
+    container.addClass("opencode-chat");
+    this.messagesEl = container.createDiv({ cls: "opencode-messages" });
+    this.buildContextBar(container);
+    this.buildAttachmentsBar(container);
+    this.buildStatsBar(container);
+    this.buildInputArea(container);
+    void this.populateSessionSelect().then(() => {
+      this.loadHistoryForSession(this.viewSession);
+    });
+  }
+  onClose() {
+    if (this.currentProc) this.plugin.runner.killProc(this.currentProc);
+    this.currentProc = null;
+    return super.onClose();
+  }
+  setContext(ctx) {
+    this.context = ctx;
+    this.updateContextBar();
+  }
+  focusInput() {
+    var _a;
+    (_a = this.inputEl) == null ? void 0 : _a.focus();
+  }
+  sendText(text) {
+    if (this.inputEl) this.inputEl.value = text;
+    this.send();
+  }
+  buildContextBar(container) {
+    this.contextBar = container.createDiv({ cls: "opencode-context-bar" });
+    this.contextLabelEl = this.contextBar.createSpan({ cls: "opencode-context-label" });
+    this.contextClearBtn = this.contextBar.createEl("button", {
+      cls: "opencode-icon-btn hidden",
+      attr: { title: "Rimuovi il contesto allegato" }
+    });
+    (0, import_obsidian3.setIcon)(this.contextClearBtn, "x");
+    this.contextClearBtn.addEventListener("click", () => {
+      this.context = null;
+      this.updateContextBar();
+    });
+    this.contextBar.createSpan({ cls: "opencode-context-spacer" });
+    this.sessionSelect = this.contextBar.createEl("select", {
+      cls: "opencode-session-select"
+    });
+    this.sessionSelect.addEventListener("change", () => {
+      const v = this.sessionSelect.value;
+      if (v !== this.viewSession) {
+        this.viewSession = v;
+        this.plugin.settings.sessionId = v;
+        void this.plugin.saveSettings();
+        this.loadHistoryForSession(v);
+      }
+      this.updateSessionBtnStates();
+    });
+    void this.populateSessionSelect();
+    this.pinBtn = this.contextBar.createEl("button", {
+      cls: "opencode-icon-btn",
+      attr: { title: "Pina/Spilla la sessione" }
+    });
+    (0, import_obsidian3.setIcon)(this.pinBtn, "pin");
+    this.pinBtn.addEventListener("click", () => this.togglePin());
+    this.renameBtn = this.contextBar.createEl("button", {
+      cls: "opencode-icon-btn",
+      attr: { title: "Rinomina sessione" }
+    });
+    (0, import_obsidian3.setIcon)(this.renameBtn, "pencil");
+    this.renameBtn.addEventListener("click", () => this.renameCurrentSession());
+    this.deleteBtn = this.contextBar.createEl("button", {
+      cls: "opencode-icon-btn",
+      attr: { title: "Elimina sessione" }
+    });
+    (0, import_obsidian3.setIcon)(this.deleteBtn, "trash");
+    this.deleteBtn.addEventListener("click", () => this.deleteCurrentSession());
+    const statsBtn = this.contextBar.createEl("button", {
+      cls: "opencode-icon-btn",
+      attr: { title: "Statistiche token e costi" }
+    });
+    (0, import_obsidian3.setIcon)(statsBtn, "bar-chart-3");
+    statsBtn.addEventListener("click", () => new StatsModal(this.app, this.plugin.runner).open());
+    const attachBtn = this.contextBar.createEl("button", { cls: "opencode-add-note-btn" });
+    attachBtn.setText("\uFF0B Allega file");
+    attachBtn.addEventListener("click", () => this.openFilePicker());
+    const add = this.contextBar.createEl("button", { cls: "opencode-add-note-btn" });
+    add.setText("+ Nota corrente");
+    add.addEventListener("click", () => this.attachCurrentNote());
+    this.updateContextBar();
+  }
+  buildAttachmentsBar(container) {
+    this.attachmentsBar = container.createDiv({ cls: "opencode-attachments-bar hidden" });
+    this.updateAttachmentsBar();
+  }
+  updateAttachmentsBar() {
+    if (!this.attachmentsBar) return;
+    this.attachmentsBar.empty();
+    if (this.attachments.length === 0) {
+      this.attachmentsBar.addClass("hidden");
+      return;
+    }
+    this.attachmentsBar.removeClass("hidden");
+    for (const a of this.attachments) {
+      const chip = this.attachmentsBar.createSpan({ cls: "opencode-attachment-chip" });
+      const icon = chip.createSpan({ cls: "opencode-attachment-icon" });
+      (0, import_obsidian3.setIcon)(icon, a.image ? "image" : "file-text");
+      chip.createSpan({ text: a.label, cls: "opencode-attachment-label" });
+      const rm = chip.createEl("button", { cls: "opencode-icon-btn" });
+      (0, import_obsidian3.setIcon)(rm, "x");
+      rm.addEventListener("click", () => {
+        this.attachments = this.attachments.filter((x) => x.path !== a.path);
+        this.updateAttachmentsBar();
+      });
+    }
+  }
+  openFilePicker() {
+    new FileSuggestModal(this.app, (file) => this.addAttachment(file.path)).open();
+  }
+  addAttachment(path) {
+    if (this.attachments.some((a) => a.path === path)) return;
+    const isImage = /\.(png|jpe?g|gif|webp|bmp|svg|avif)$/i.test(path);
+    this.attachments.push({ path, label: path, image: isImage });
+    this.updateAttachmentsBar();
+    if (isImage) {
+      new import_obsidian3.Notice(
+        "Immagine allegata: verifica che il modello selezionato supporti le immagini (vision)."
+      );
+    }
+  }
+  togglePin() {
+    var _a;
+    const id = this.viewSession;
+    if (!id) {
+      new import_obsidian3.Notice("Seleziona una sessione da pinnare.");
+      return;
+    }
+    const pinned = (_a = this.plugin.settings.pinned) != null ? _a : [];
+    const idx = pinned.indexOf(id);
+    if (idx >= 0) pinned.splice(idx, 1);
+    else pinned.push(id);
+    this.plugin.settings.pinned = pinned;
+    void this.plugin.saveSettings();
+    void this.populateSessionSelect();
+    new import_obsidian3.Notice(idx >= 0 ? "Sessione rimossa dai pinnati." : "Sessione pinnata.");
+  }
+  renameCurrentSession() {
+    var _a, _b;
+    const id = this.viewSession;
+    if (!id) {
+      new import_obsidian3.Notice("Seleziona una sessione da rinominare.");
+      return;
+    }
+    const current = (_b = (_a = this.sessionSelect.selectedOptions[0]) == null ? void 0 : _a.textContent) != null ? _b : id;
+    new RenameModal(this.app, current, (newTitle) => {
+      this.plugin.runner.renameSession(id, newTitle).then(() => {
+        void this.populateSessionSelect();
+        new import_obsidian3.Notice("Sessione rinominata.");
+      }).catch((e) => new import_obsidian3.Notice(`Errore: ${e.message}`));
+    }).open();
+  }
+  deleteCurrentSession() {
+    var _a, _b;
+    const id = this.viewSession;
+    if (!id) {
+      new import_obsidian3.Notice("Seleziona una sessione da eliminare.");
+      return;
+    }
+    const title = (_b = (_a = this.sessionSelect.selectedOptions[0]) == null ? void 0 : _a.textContent) != null ? _b : id;
+    new ConfirmModal(
+      this.app,
+      "Elimina sessione",
+      `Vuoi eliminare la sessione "${title}"? Verr\xE0 rimossa anche la cronologia salvata in Obsidian.`,
+      "Elimina",
+      () => {
+        this.plugin.runner.deleteSession(id).then(async () => {
+          var _a2;
+          await this.plugin.deleteHistory(id);
+          const pinned = (_a2 = this.plugin.settings.pinned) != null ? _a2 : [];
+          const pi = pinned.indexOf(id);
+          if (pi >= 0) pinned.splice(pi, 1);
+          this.plugin.settings.pinned = pinned;
+          if (this.viewSession === id) this.viewSession = "";
+          this.plugin.settings.sessionId = "";
+          await this.plugin.saveSettings();
+          await this.populateSessionSelect();
+          this.loadHistoryForSession(this.viewSession);
+          new import_obsidian3.Notice("Sessione eliminata.");
+        }).catch((e) => new import_obsidian3.Notice(`Errore: ${e.message}`));
+      }
+    ).open();
+  }
+  updateContextBar() {
+    if (this.context) {
+      this.contextLabelEl.setText(`Contesto: ${this.context.label}`);
+      this.contextLabelEl.show();
+      this.contextClearBtn.removeClass("hidden");
+    } else {
+      this.contextLabelEl.setText("");
+      this.contextLabelEl.hide();
+      this.contextClearBtn.addClass("hidden");
+    }
+  }
+  async populateSessionSelect() {
+    var _a;
+    const sel = this.sessionSelect;
+    sel.empty();
+    const newOpt = sel.createEl("option");
+    newOpt.value = "";
+    newOpt.textContent = "\uFF0B Nuova sessione";
+    try {
+      const sessions = await this.plugin.runner.listSessions();
+      sessions.sort((a, b) => {
+        var _a2, _b;
+        return ((_a2 = b.updated) != null ? _a2 : 0) - ((_b = a.updated) != null ? _b : 0);
+      });
+      const pinnedSet = new Set((_a = this.plugin.settings.pinned) != null ? _a : []);
+      const pinned = sessions.filter((s) => pinnedSet.has(s.id));
+      const recent = sessions.filter((s) => !pinnedSet.has(s.id)).slice(0, 10);
+      for (const s of [...pinned, ...recent]) {
+        const o = sel.createEl("option");
+        o.value = s.id;
+        const title = s.title || s.id;
+        const mark = pinnedSet.has(s.id) ? "\u25CF " : "";
+        o.textContent = mark + (title.length > 40 ? title.slice(0, 37) + "\u2026" : title);
+        o.title = title;
+      }
+    } catch (e) {
+    }
+    sel.value = this.viewSession || "";
+    this.updateSessionBtnStates();
+  }
+  updateSessionBtnStates() {
+    var _a;
+    const hasSession = !!this.viewSession;
+    this.renameBtn.disabled = !hasSession;
+    this.deleteBtn.disabled = !hasSession;
+    this.pinBtn.disabled = !hasSession;
+    const pinned = ((_a = this.plugin.settings.pinned) != null ? _a : []).includes(this.viewSession);
+    this.pinBtn.toggleClass("is-active", pinned);
+  }
+  buildStatsBar(container) {
+    this.statsBar = container.createDiv({ cls: "opencode-stats-bar" });
+    this.updateStatsBar();
+  }
+  updateStatsBar() {
+    if (!this.statsBar) return;
+    this.statsBar.empty();
+    this.statsBar.createSpan({
+      text: `Token: ${this.stats.total.toLocaleString("it-IT")} (in ${this.stats.input.toLocaleString("it-IT")} \xB7 out ${this.stats.output.toLocaleString("it-IT")}) \xB7 Costo: ${this.stats.cost.toFixed(4)} $`,
+      cls: "opencode-stats-text"
+    });
+  }
+  addStats(info) {
+    var _a, _b, _c, _d;
+    if (info.tokens) {
+      this.stats.input += (_a = info.tokens.input) != null ? _a : 0;
+      this.stats.output += (_b = info.tokens.output) != null ? _b : 0;
+      this.stats.total += (_c = info.tokens.total) != null ? _c : 0;
+    }
+    this.stats.cost += (_d = info.cost) != null ? _d : 0;
+    this.updateStatsBar();
+  }
+  resetStats() {
+    this.stats = { input: 0, output: 0, total: 0, cost: 0 };
+    this.updateStatsBar();
+  }
+  async attachCurrentNote() {
+    const file = this.app.workspace.getActiveFile();
+    if (!file) {
+      new import_obsidian3.Notice("Nessuna nota attiva");
+      return;
+    }
+    const content = await this.app.vault.cachedRead(file);
+    this.context = { label: file.path, content };
+    this.updateContextBar();
+    new import_obsidian3.Notice("Nota aggiunta al contesto");
+  }
+  buildInputArea(container) {
+    const inputArea = container.createDiv({ cls: "opencode-input-area" });
+    this.suggestEl = inputArea.createDiv({ cls: "opencode-suggest hidden" });
+    this.inputEl = inputArea.createEl("textarea", {
+      cls: "opencode-input",
+      attr: {
+        placeholder: "Scrivi un messaggio per opencode... (Invio per inviare, Shift+Invio per andare a capo)"
+      }
+    });
+    this.inputEl.addEventListener("keydown", (e) => this.onInputKeydown(e));
+    this.inputEl.addEventListener("input", () => this.onInputChange());
+    const buttons = inputArea.createDiv({ cls: "opencode-buttons" });
+    this.modelBtn = buttons.createEl("button", { cls: "opencode-model-btn" });
+    this.updateModelBtn();
+    this.modelBtn.addEventListener("click", () => this.openModelList());
+    buttons.createSpan({ cls: "opencode-buttons-spacer" });
+    this.sendBtn = buttons.createEl("button", { cls: "opencode-send-btn" });
+    this.sendBtn.setText("Invia");
+    this.sendBtn.addEventListener("click", () => this.send());
+    this.stopBtn = buttons.createEl("button", { cls: "opencode-stop-btn" });
+    this.stopBtn.setText("Stop");
+    this.stopBtn.addClass("hidden");
+    this.stopBtn.addEventListener("click", () => {
+      this.stoppedByUser = true;
+      if (this.currentProc) this.plugin.runner.killProc(this.currentProc);
+    });
+  }
+  updateModelBtn() {
+    if (!this.modelBtn) return;
+    const m = this.plugin.settings.model || DEFAULT_SETTINGS.model;
+    this.modelBtn.setText(m.length > 30 ? m.slice(0, 27) + "\u2026" : m);
+  }
+  openModelList() {
+    const cur = this.plugin.settings.model || DEFAULT_SETTINGS.model;
+    const open = (models) => {
+      this.suggestTrigger = null;
+      this.suggestItems = models.map((m) => ({
+        label: m === cur ? `${m}  \u2713` : m,
+        desc: m === cur ? "modello attivo" : void 0,
+        action: () => {
+          this.plugin.settings.model = m;
+          void this.plugin.saveSettings();
+          this.updateModelBtn();
+          this.closeSuggest();
+          this.inputEl.focus();
+          new import_obsidian3.Notice(`Modello impostato: ${m}`);
+        }
+      }));
+      this.suggestIndex = Math.max(0, this.suggestItems.findIndex((x) => x.label.startsWith(cur)));
+      this.suggestOpen = true;
+      this.renderSuggest();
+      this.inputEl.focus();
+    };
+    if (this.modelCache.length > 0) {
+      open(this.modelCache);
+      return;
+    }
+    this.plugin.runner.listModels().then((models) => {
+      this.modelCache = models;
+      open(models);
+    }).catch((e) => new import_obsidian3.Notice(`Errore: ${e.message}`));
+  }
+  startNewSession() {
+    this.viewSession = "";
+    this.plugin.settings.sessionId = "";
+    void this.plugin.saveSettings();
+    void this.populateSessionSelect();
+    this.loadHistoryForSession("");
+    new import_obsidian3.Notice("Nuova sessione: il prossimo messaggio partir\xE0 da zero.");
+  }
+  continueInNewSession() {
+    if (this.running) {
+      new import_obsidian3.Notice("C'\xE8 gi\xE0 una richiesta in corso.");
+      return;
+    }
+    const oldSession = this.viewSession;
+    if (!oldSession) {
+      new import_obsidian3.Notice("Seleziona prima la sessione da riassumere.");
+      return;
+    }
+    const bubble = this.addAssistantMessage();
+    bubble.status.setText("Generazione riassunto della sessione...");
+    this.running = true;
+    this.hadStreamError = false;
+    this.stoppedByUser = false;
+    this.lastStderr = "";
+    this.setRunningUI(true);
+    const summaryPrompt = "Riassumi in modo dettagliato questa conversazione: obiettivi, decisioni prese, lavoro svolto, stato attuale e prossimi passi. Scrivi il riassunto in modo che si possa continuare il lavoro in una nuova sessione senza perdere il contesto.";
+    const proc = this.plugin.runner.runStream(summaryPrompt, [], {
+      onSession: () => {
+      },
+      onRaw: (chunk) => {
+        this.lastStderr += chunk;
+      },
+      onText: (text) => {
+        bubble.setText(text);
+        if (bubble.status.getText() !== "") bubble.status.setText("");
+      },
+      onReasoning: (text) => bubble.setReasoning(text),
+      onStep: (step) => {
+        bubble.addStep(step);
+        bubble.status.setText("");
+      },
+      onFinish: (info) => {
+        this.addStats(info);
+        bubble.setFinish(info);
+      },
+      onError: (msg) => {
+        this.hadStreamError = true;
+        bubble.finalize();
+        this.addErrorBubble(this.friendlyError(msg));
+      },
+      onDone: (code) => {
+        if (this.currentProc === proc) this.currentProc = null;
+        bubble.finalize();
+        this.running = false;
+        this.setRunningUI(false);
+        const failed = code !== 0 || this.hadStreamError;
+        if (failed && !this.stoppedByUser) {
+          if (!this.hadStreamError) {
+            const detail = this.lastStderr.trim().replace(/\s+/g, " ").slice(0, 300);
+            this.addErrorBubble(
+              `Riassunto non riuscito (codice ${code}).${detail ? ` ${detail}` : ""}`
+            );
+          }
+          this.finishContinuation(
+            this.buildLocalContinuation(oldSession),
+            "Sessione al limite: nuova sessione creata con la cronologia recente."
+          );
+          return;
+        }
+        const summary = bubble.getSnapshot().text.trim();
+        const prompt = summary ? `[RIASSUNTO DELLA SESSIONE PRECEDENTE]
+${summary}
+
+---
+
+Continua il lavoro da qui.` : "Continua il lavoro dalla sessione precedente.";
+        this.finishContinuation(
+          prompt,
+          "Nuova sessione creata con il riassunto della precedente."
+        );
+      }
+    });
+    this.currentProc = proc;
+  }
+  finishContinuation(prompt, notice) {
+    this.viewSession = "";
+    this.plugin.settings.sessionId = "";
+    void this.plugin.saveSettings();
+    void this.populateSessionSelect();
+    this.loadHistoryForSession("");
+    this.inputEl.value = prompt;
+    this.inputEl.focus();
+    new import_obsidian3.Notice(notice);
+  }
+  buildLocalContinuation(sessionId) {
+    const history = this.plugin.getHistory(sessionId);
+    const recent = history.slice(-24);
+    if (recent.length === 0) {
+      return "La sessione precedente non ha una cronologia salvata. Continua il lavoro da qui.";
+    }
+    const lines = [];
+    for (const rec of recent) {
+      const who = rec.role === "user" ? "Utente" : "Opencode";
+      const text = rec.text.length > 800 ? rec.text.slice(0, 800) + "\u2026" : rec.text;
+      lines.push(`${who}: ${text}`);
+    }
+    return `[CRONOLOGIA RECENTE DELLA SESSIONE PRECEDENTE]
+${lines.join(
+      "\n\n"
+    )}
+
+---
+
+Continua il lavoro da qui, tenendo conto del contesto sopra.`;
+  }
+  // ===== Comandi / @ ! =====
+  onInputKeydown(e) {
+    if (this.suggestOpen) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        this.suggestIndex = Math.min(this.suggestIndex + 1, this.suggestItems.length - 1);
+        this.renderSuggest();
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        this.suggestIndex = Math.max(this.suggestIndex - 1, 0);
+        this.renderSuggest();
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        this.chooseSuggest(this.suggestIndex);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        this.closeSuggest();
+        return;
+      }
+    }
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      this.send();
+    }
+  }
+  onInputChange() {
+    if (this.suggestOpen && !this.suggestTrigger) {
+      this.closeSuggest();
+    }
+    const tr = this.detectTrigger();
+    if (!tr) {
+      this.closeSuggest();
+      return;
+    }
+    const items = this.buildSuggestItems(tr.char, tr.query);
+    if (items.length === 0) {
+      this.closeSuggest();
+      return;
+    }
+    this.suggestTrigger = { char: tr.char, start: tr.start };
+    this.suggestItems = items;
+    this.suggestIndex = 0;
+    this.suggestOpen = true;
+    this.renderSuggest();
+  }
+  detectTrigger() {
+    var _a;
+    const v = this.inputEl.value;
+    const pos = (_a = this.inputEl.selectionStart) != null ? _a : v.length;
+    let i = pos - 1;
+    while (i >= 0 && !/\s/.test(v[i])) i--;
+    const start = i + 1;
+    const token = v.slice(start, pos);
+    if (!token) return null;
+    const ch = token[0];
+    if (ch !== "/" && ch !== "@" && ch !== "!") return null;
+    return { char: ch, start, query: token.slice(1).toLowerCase() };
+  }
+  buildSuggestItems(char, query) {
+    let items;
+    if (char === "/") items = this.commandItems();
+    else if (char === "@") items = this.fileItems();
+    else items = this.actionItems();
+    const q = query.toLowerCase();
+    if (!q) return items;
+    return items.filter(
+      (x) => {
+        var _a;
+        return x.label.toLowerCase().includes(q) || ((_a = x.desc) != null ? _a : "").toLowerCase().includes(q);
+      }
+    );
+  }
+  commandItems() {
+    return [
+      {
+        label: "/modello",
+        desc: "Cambia il modello",
+        action: () => {
+          this.removeTrigger();
+          this.openModelList();
+        }
+      },
+      {
+        label: "/nuova",
+        desc: "Nuova sessione",
+        action: () => {
+          this.removeTrigger();
+          this.startNewSession();
+        }
+      },
+      {
+        label: "/nota",
+        desc: "Allega la nota corrente",
+        action: () => {
+          this.removeTrigger();
+          void this.attachCurrentNote();
+        }
+      },
+      {
+        label: "/allega",
+        desc: "Allega un file",
+        action: () => {
+          this.removeTrigger();
+          this.openFilePicker();
+        }
+      },
+      {
+        label: "/stats",
+        desc: "Statistiche token e costi",
+        action: () => {
+          this.removeTrigger();
+          new StatsModal(this.app, this.plugin.runner).open();
+        }
+      },
+      {
+        label: "/pin",
+        desc: "Pina/Spilla la sessione",
+        action: () => {
+          this.removeTrigger();
+          this.togglePin();
+        }
+      },
+      {
+        label: "/rinomina",
+        desc: "Rinomina la sessione",
+        action: () => {
+          this.removeTrigger();
+          this.renameCurrentSession();
+        }
+      }
+    ];
+  }
+  fileItems() {
+    if (!this.vaultPaths) {
+      this.vaultPaths = this.app.vault.getFiles().map((f) => f.path).sort((a, b) => a.localeCompare(b));
+    }
+    return this.vaultPaths.map((p) => ({
+      label: p,
+      desc: "Allegato",
+      action: () => {
+        this.removeTrigger();
+        this.addAttachment(p);
+      }
+    }));
+  }
+  actionItems() {
+    return [
+      {
+        label: "nota corrente",
+        desc: "Allega la nota aperta come contesto",
+        action: () => {
+          this.removeTrigger();
+          void this.attachCurrentNote();
+        }
+      },
+      {
+        label: "allega file",
+        desc: "Scegli un file da allegare",
+        action: () => {
+          this.removeTrigger();
+          this.openFilePicker();
+        }
+      },
+      {
+        label: "nuova sessione",
+        desc: "Parti da una sessione vuota",
+        action: () => {
+          this.removeTrigger();
+          this.startNewSession();
+        }
+      },
+      {
+        label: "statistiche",
+        desc: "Token e costi (5h, settimana, mese)",
+        action: () => {
+          this.removeTrigger();
+          new StatsModal(this.app, this.plugin.runner).open();
+        }
+      },
+      {
+        label: "pina/spilla sessione",
+        desc: "Fissa la sessione nella lista",
+        action: () => {
+          this.removeTrigger();
+          this.togglePin();
+        }
+      }
+    ];
+  }
+  renderSuggest() {
+    this.suggestEl.empty();
+    this.suggestEl.removeClass("hidden");
+    this.suggestItems.forEach((item, i) => {
+      const row = this.suggestEl.createDiv({
+        cls: "opencode-suggest-item" + (i === this.suggestIndex ? " is-active" : "")
+      });
+      row.createDiv({ cls: "opencode-suggest-label", text: item.label });
+      if (item.desc) row.createDiv({ cls: "opencode-suggest-desc", text: item.desc });
+      row.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        this.chooseSuggest(i);
+      });
+      row.addEventListener("mouseenter", () => {
+        this.suggestIndex = i;
+        this.renderSuggest();
+      });
+    });
+  }
+  closeSuggest() {
+    var _a, _b;
+    this.suggestTrigger = null;
+    this.suggestOpen = false;
+    this.suggestItems = [];
+    (_a = this.suggestEl) == null ? void 0 : _a.addClass("hidden");
+    (_b = this.suggestEl) == null ? void 0 : _b.empty();
+  }
+  chooseSuggest(index) {
+    const item = this.suggestItems[index];
+    if (item) item.action();
+  }
+  removeTrigger() {
+    var _a;
+    const tr = this.suggestTrigger;
+    if (!tr) return;
+    const v = this.inputEl.value;
+    const end = (_a = this.inputEl.selectionStart) != null ? _a : v.length;
+    this.inputEl.value = v.slice(0, tr.start) + v.slice(end);
+    const pos = Math.min(tr.start, this.inputEl.value.length);
+    this.inputEl.setSelectionRange(pos, pos);
+    this.closeSuggest();
+    this.inputEl.focus();
+  }
+  addWelcome() {
+    const row = this.messagesEl.createDiv({
+      cls: "opencode-message opencode-message--assistant"
+    });
+    row.createDiv({ cls: "opencode-meta", text: "Opencode" });
+    row.createDiv({
+      text: "Ciao! Sono il plugin che collega il tuo vault a opencode. Scrivi un messaggio qui sotto. Prova i comandi: / per i comandi, @ per allegare un file, ! per le azioni rapide.",
+      cls: "opencode-bubble"
+    });
+  }
+  async send() {
+    var _a;
+    const raw = this.inputEl.value.trim();
+    if (!raw || this.running) return;
+    let prompt = raw;
+    const ctxLabel = (_a = this.context) == null ? void 0 : _a.label;
+    if (this.context) {
+      prompt = `[CONTESTO DA OBSIDIAN - ${this.context.label}]
+${this.context.content}
+
+---
+
+` + raw;
+      this.context = null;
+      this.updateContextBar();
+    }
+    this.addUserMessage(raw, ctxLabel);
+    this.inputEl.value = "";
+    this.pendingUser = { text: raw, contextLabel: ctxLabel };
+    const currentSession = this.viewSession;
+    if (currentSession) {
+      void this.plugin.appendHistory(currentSession, {
+        role: "user",
+        text: raw,
+        contextLabel: ctxLabel
+      });
+      this.pendingUser = null;
+    }
+    const filePaths = this.attachments.map((a) => this.toAbsolutePath(a.path));
+    this.doRun(prompt, filePaths);
+  }
+  toAbsolutePath(vaultPath) {
+    const adapter = this.app.vault.adapter;
+    if (adapter instanceof import_obsidian3.FileSystemAdapter) {
+      return `${adapter.getBasePath()}\\${vaultPath.split("/").join("\\")}`;
+    }
+    return vaultPath;
+  }
+  friendlyError(msg) {
+    if (/does not support image input|image input is not supported|images? are not supported/i.test(
+      msg
+    )) {
+      return "Il modello selezionato non supporta le immagini. Rimuovi l'allegato immagine oppure scegli un modello multimodale (con supporto vision) dal menu Modello.";
+    }
+    return msg;
+  }
+  doRun(prompt, filePaths = []) {
+    const bubble = this.addAssistantMessage();
+    bubble.status.setText("In avvio...");
+    this.running = true;
+    this.hadStreamError = false;
+    this.stoppedByUser = false;
+    this.lastStderr = "";
+    this.setRunningUI(true);
+    const proc = this.plugin.runner.runStream(prompt, filePaths, {
+      onSession: (sid) => {
+        if (sid && sid !== this.viewSession) {
+          this.viewSession = sid;
+          this.plugin.settings.sessionId = sid;
+          void this.plugin.saveSettings();
+          if (this.pendingUser) {
+            void this.plugin.appendHistory(sid, {
+              role: "user",
+              text: this.pendingUser.text,
+              contextLabel: this.pendingUser.contextLabel
+            });
+            this.pendingUser = null;
+          }
+        }
+      },
+      onRaw: (chunk) => {
+        this.lastStderr += chunk;
+      },
+      onText: (text) => {
+        if (/does not support image input|image input is not supported/i.test(text)) {
+          this.hadStreamError = true;
+          bubble.finalize();
+          this.addErrorBubble(this.friendlyError(text));
+          return;
+        }
+        bubble.setText(text);
+        if (bubble.status.getText() !== "") bubble.status.setText("");
+      },
+      onReasoning: (text) => {
+        bubble.setReasoning(text);
+      },
+      onStep: (step) => {
+        bubble.addStep(step);
+        bubble.status.setText("");
+      },
+      onFinish: (info) => {
+        this.addStats(info);
+        bubble.setFinish(info);
+      },
+      onError: (msg) => {
+        this.hadStreamError = true;
+        bubble.finalize();
+        if (/session not found/i.test(msg) && this.viewSession) {
+          this.viewSession = "";
+          this.plugin.settings.sessionId = "";
+          void this.plugin.saveSettings();
+          this.addErrorBubble(
+            "La sessione salvata non esiste pi\xF9: ne verr\xE0 creata una nuova, rispedisci il messaggio."
+          );
+        } else {
+          this.addErrorBubble(this.friendlyError(msg));
+        }
+      },
+      onDone: (code) => {
+        if (this.currentProc === proc) this.currentProc = null;
+        bubble.finalize();
+        const snap = bubble.getSnapshot();
+        const sid = this.viewSession;
+        if (sid && (snap.text.trim() || snap.reasoning.trim())) {
+          void this.plugin.appendHistory(sid, {
+            role: "assistant",
+            text: snap.text,
+            reasoning: snap.reasoning || void 0,
+            tokens: snap.tokens,
+            cost: snap.cost
+          });
+        }
+        this.pendingUser = null;
+        if (code !== 0 && !this.hadStreamError && !this.stoppedByUser) {
+          if (/session not found/i.test(this.lastStderr) && this.viewSession) {
+            this.viewSession = "";
+            this.plugin.settings.sessionId = "";
+            void this.plugin.saveSettings();
+            this.addErrorBubble(
+              "La sessione salvata non esiste pi\xF9: ne ho creata una nuova, rispedisci il messaggio."
+            );
+          } else {
+            const detail = this.lastStderr.trim().replace(/\s+/g, " ").slice(0, 300);
+            this.addErrorBubble(
+              this.friendlyError(
+                `Il processo opencode \xE8 terminato con codice ${code}.${detail ? ` ${detail}` : ""}`
+              )
+            );
+          }
+        }
+        this.running = false;
+        this.setRunningUI(false);
+        void this.populateSessionSelect();
+      }
+    });
+    this.currentProc = proc;
+  }
+  addUserMessage(text, ctxLabel) {
+    const row = this.messagesEl.createDiv({
+      cls: "opencode-message opencode-message--user"
+    });
+    row.createDiv({ cls: "opencode-meta", text: "Tu" });
+    if (ctxLabel) {
+      row.createDiv({ cls: "opencode-context-hint", text: `con contesto: ${ctxLabel}` });
+    }
+    row.createDiv({ cls: "opencode-bubble", text });
+    this.scrollToBottom();
+  }
+  addAssistantMessage() {
+    const row = this.messagesEl.createDiv({
+      cls: "opencode-message opencode-message--assistant"
+    });
+    const bubble = new AssistantBubble(row, this.app, this);
+    this.scrollToBottom();
+    return bubble;
+  }
+  addErrorBubble(msg) {
+    const row = this.messagesEl.createDiv({
+      cls: "opencode-message opencode-message--error"
+    });
+    row.createDiv({ cls: "opencode-meta", text: "Errore" });
+    row.createDiv({ cls: "opencode-bubble", text: msg });
+    this.scrollToBottom();
+  }
+  setRunningUI(running) {
+    this.sendBtn.disabled = running;
+    this.sendBtn.setText(running ? "..." : "Invia");
+    this.stopBtn.toggleClass("hidden", !running);
+    this.sessionSelect.disabled = running;
+    this.updateSessionBtnStates();
+    if (running) {
+      this.pinBtn.disabled = true;
+      this.renameBtn.disabled = true;
+      this.deleteBtn.disabled = true;
+    }
+  }
+  loadHistoryForSession(sessionId) {
+    this.currentSessionId = sessionId;
+    this.messagesEl.empty();
+    this.resetStats();
+    const history = this.plugin.getHistory(sessionId);
+    if (history.length === 0) {
+      this.addWelcome();
+    } else {
+      for (const rec of history) {
+        if (rec.role === "user") {
+          this.addUserMessage(rec.text, rec.contextLabel);
+        } else {
+          this.renderHistoryAssistant(rec);
+        }
+      }
+    }
+    this.scrollToBottom();
+  }
+  renderHistoryAssistant(rec) {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _i;
+    const row = this.messagesEl.createDiv({
+      cls: "opencode-message opencode-message--assistant"
+    });
+    row.createDiv({ cls: "opencode-meta", text: "Opencode" });
+    if (rec.reasoning && rec.reasoning.trim()) {
+      const det = row.createEl("details", { cls: "opencode-reasoning" });
+      det.createEl("summary").setText("Ragionamento");
+      det.createDiv({ cls: "opencode-reasoning-content", text: rec.reasoning });
+    }
+    const content = row.createDiv({ cls: "opencode-bubble opencode-bubble--assistant" });
+    if (rec.text.trim()) {
+      import_obsidian3.MarkdownRenderer.render(this.app, rec.text, content, "", this).then(
+        () => this.scrollToBottom()
+      );
+    }
+    if (rec.tokens || rec.cost !== void 0) {
+      const total = (_d = (_a = rec.tokens) == null ? void 0 : _a.total) != null ? _d : rec.tokens ? ((_b = rec.tokens.input) != null ? _b : 0) + ((_c = rec.tokens.output) != null ? _c : 0) : 0;
+      const inp = (_f = (_e = rec.tokens) == null ? void 0 : _e.input) != null ? _f : 0;
+      const out = (_h = (_g = rec.tokens) == null ? void 0 : _g.output) != null ? _h : 0;
+      const cost = (_i = rec.cost) != null ? _i : 0;
+      row.createDiv({
+        cls: "opencode-msg-stats",
+        text: `Token: ${total.toLocaleString("it-IT")} (in ${inp.toLocaleString("it-IT")} \xB7 out ${out.toLocaleString("it-IT")}) \xB7 Costo: ${cost.toFixed(4)} $`
+      });
+    }
+  }
+  scrollToBottom() {
+    this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+  }
+  scheduleScroll() {
+    if (this.renderTimer !== null) clearTimeout(this.renderTimer);
+    this.renderTimer = window.setTimeout(() => this.scrollToBottom(), 150);
+  }
+};
+var AssistantBubble = class {
+  constructor(row, app, view) {
+    this.row = row;
+    this.app = app;
+    this.view = view;
+    this.steps = /* @__PURE__ */ new Map();
+    this.rawText = "";
+    this.rawReasoning = "";
+    this.renderTimer = null;
+    this.row.createDiv({ cls: "opencode-meta", text: "Opencode" });
+    this.reasoningEl = this.row.createEl("details", { cls: "opencode-reasoning hidden" });
+    const summary = this.reasoningEl.createEl("summary");
+    summary.setText("Ragionamento");
+    this.reasoningContent = this.reasoningEl.createDiv({ cls: "opencode-reasoning-content" });
+    this.stepsEl = this.row.createDiv({ cls: "opencode-steps" });
+    this.contentEl = this.row.createDiv({ cls: "opencode-bubble opencode-bubble--assistant" });
+    this.statsEl = this.row.createDiv({ cls: "opencode-msg-stats hidden" });
+    this.status = this.row.createDiv({ cls: "opencode-status" });
+  }
+  setText(text) {
+    this.rawText = text;
+    this.scheduleRender();
+  }
+  setReasoning(text) {
+    this.rawReasoning = text;
+    this.reasoningEl.removeClass("hidden");
+    this.reasoningContent.textContent = text;
+    this.view.scheduleScroll();
+  }
+  addStep(step) {
+    const showIO = this.view.plugin.settings.showToolIO;
+    const existing = this.steps.get(step.id);
+    if (step.state === "running") {
+      if (existing) return;
+      const row = this.stepsEl.createDiv({ cls: "opencode-step opencode-step--running" });
+      const icon = row.createSpan({ cls: "opencode-step-icon" });
+      icon.createDiv({ cls: "opencode-step-spinner" });
+      const main = row.createDiv({ cls: "opencode-step-main" });
+      const title = main.createDiv({ cls: "opencode-step-title" });
+      title.setText(`${step.tool}: ${step.title}`);
+      if (showIO) this.buildStepDetails(main, step);
+      this.steps.set(step.id, { row, icon, status: "running" });
+      this.view.scheduleScroll();
+      return;
+    }
+    const rec = existing;
+    if (rec) {
+      rec.status = step.state;
+      rec.row.removeClass("opencode-step--running");
+      rec.row.addClass(step.state === "error" ? "opencode-step--error" : "opencode-step--done");
+      rec.icon.empty();
+      (0, import_obsidian3.setIcon)(rec.icon, step.state === "error" ? "x" : "check");
+      if (showIO) {
+        const details = rec.row.querySelector("details");
+        if (details) {
+          const pre = details.querySelector("pre");
+          if (pre) pre.setText(this.serializeStep(step));
+        }
+      }
+    } else {
+      const row = this.stepsEl.createDiv({
+        cls: `opencode-step ${step.state === "error" ? "opencode-step--error" : "opencode-step--done"}`
+      });
+      const icon = row.createSpan({ cls: "opencode-step-icon" });
+      (0, import_obsidian3.setIcon)(icon, step.state === "error" ? "x" : "check");
+      const main = row.createDiv({ cls: "opencode-step-main" });
+      const title = main.createDiv({ cls: "opencode-step-title" });
+      title.setText(`${step.tool}: ${step.title}`);
+      if (showIO) this.buildStepDetails(main, step);
+      this.steps.set(step.id, { row, icon, status: step.state });
+    }
+    this.view.scheduleScroll();
+  }
+  buildStepDetails(main, step) {
+    const det = main.createEl("details", { cls: "opencode-step-details" });
+    det.createEl("summary").setText("Dettagli");
+    const pre = det.createEl("pre", { cls: "opencode-step-io" });
+    pre.setText(this.serializeStep(step));
+  }
+  serializeStep(step) {
+    const parts = [];
+    const fmt = (v) => typeof v === "string" ? v : JSON.stringify(v, null, 2);
+    if (step.input !== void 0 && step.input !== null) {
+      parts.push("INPUT:\n" + fmt(step.input));
+    }
+    if (step.output !== void 0 && step.output !== null) {
+      parts.push("OUTPUT:\n" + fmt(step.output));
+    }
+    return parts.join("\n\n---\n\n") || "(nessun dettaglio)";
+  }
+  setFinish(info) {
+    var _a, _b, _c, _d;
+    this.lastTokens = info.tokens;
+    this.lastCost = info.cost;
+    if (info.tokens) {
+      const total = (_a = info.tokens.total) != null ? _a : 0;
+      const input = (_b = info.tokens.input) != null ? _b : 0;
+      const output = (_c = info.tokens.output) != null ? _c : 0;
+      const cost = (_d = info.cost) != null ? _d : 0;
+      this.statsEl.removeClass("hidden");
+      this.statsEl.setText(
+        `Token: ${total.toLocaleString("it-IT")} (in ${input.toLocaleString("it-IT")} \xB7 out ${output.toLocaleString("it-IT")}) \xB7 Costo: ${cost.toFixed(4)} $`
+      );
+    }
+  }
+  getSnapshot() {
+    return {
+      text: this.rawText,
+      reasoning: this.rawReasoning,
+      tokens: this.lastTokens,
+      cost: this.lastCost
+    };
+  }
+  finalize() {
+    this.flushRender();
+    this.status.setText("");
+    for (const [id, rec] of this.steps) {
+      if (rec.status === "running") {
+        rec.status = "done";
+        rec.row.removeClass("opencode-step--running");
+        rec.row.addClass("opencode-step--done");
+        rec.icon.empty();
+        (0, import_obsidian3.setIcon)(rec.icon, "check");
+      }
+    }
+  }
+  scheduleRender() {
+    if (this.renderTimer !== null) clearTimeout(this.renderTimer);
+    this.renderTimer = window.setTimeout(() => this.flushRender(), 120);
+  }
+  flushRender() {
+    if (this.renderTimer !== null) {
+      clearTimeout(this.renderTimer);
+      this.renderTimer = null;
+    }
+    this.contentEl.empty();
+    if (this.rawText.trim()) {
+      import_obsidian3.MarkdownRenderer.render(this.app, this.rawText, this.contentEl, "", this.view).then(() => {
+        this.view.scrollToBottom();
+      });
+    }
+  }
+};
+
+// src/opencodeRunner.ts
+var import_child_process = require("child_process");
+var import_fs = require("fs");
+var import_path = require("path");
+var import_obsidian4 = require("obsidian");
+var OpencodeRunner = class {
+  constructor(plugin) {
+    this.resolvedBinary = null;
+    this.resolvedBinaryTried = false;
+    this.plugin = plugin;
+  }
+  getVersion() {
+    const s = this.plugin.settings;
+    return new Promise((resolve, reject) => {
+      var _a, _b;
+      const [bin, args] = this.buildCommand(s, ["--version"]);
+      const child = this.spawnBinary(bin, args);
+      let out = "";
+      let err = "";
+      (_a = child.stdout) == null ? void 0 : _a.on("data", (d) => out += d.toString());
+      (_b = child.stderr) == null ? void 0 : _b.on("data", (d) => err += d.toString());
+      child.on("error", (e) => reject(e));
+      child.on("close", (code) => {
+        if (code === 0 && out.trim()) resolve(out.trim().split("\n")[0]);
+        else reject(new Error(err.trim() || out.trim() || `exit code ${code}`));
+      });
+    });
+  }
+  listModels() {
+    const s = this.plugin.settings;
+    return new Promise((resolve, reject) => {
+      var _a, _b;
+      const [bin, args] = this.buildCommand(s, ["models"]);
+      const child = this.spawnBinary(bin, args);
+      let out = "";
+      let err = "";
+      (_a = child.stdout) == null ? void 0 : _a.on("data", (d) => out += d.toString());
+      (_b = child.stderr) == null ? void 0 : _b.on("data", (d) => err += d.toString());
+      child.on("error", (e) => reject(e));
+      child.on("close", (code) => {
+        if (code === 0) {
+          const models = out.split("\n").map((l) => l.trim()).filter((l) => /^[a-zA-Z0-9_.:/+-]+$/.test(l)).sort();
+          resolve(models);
+        } else {
+          reject(new Error(err.trim() || out.trim() || `exit code ${code}`));
+        }
+      });
+    });
+  }
+  listSessions() {
+    const s = this.plugin.settings;
+    return new Promise((resolve, reject) => {
+      var _a, _b;
+      const [bin, args] = this.buildCommand(s, ["session", "list", "--format", "json"]);
+      const child = this.spawnBinary(bin, args);
+      let out = "";
+      let err = "";
+      (_a = child.stdout) == null ? void 0 : _a.on("data", (d) => out += d.toString());
+      (_b = child.stderr) == null ? void 0 : _b.on("data", (d) => err += d.toString());
+      child.on("error", (e) => reject(e));
+      child.on("close", (code) => {
+        if (code === 0) {
+          try {
+            const arr = JSON.parse(out);
+            resolve(Array.isArray(arr) ? arr : []);
+          } catch (e) {
+            resolve([]);
+          }
+        } else {
+          reject(new Error(err.trim() || out.trim() || `exit code ${code}`));
+        }
+      });
+    });
+  }
+  renameSession(sessionId, title) {
+    const escaped = title.replace(/'/g, "''");
+    const query = `UPDATE session SET title='${escaped}' WHERE id='${sessionId}'`;
+    return this.runDbQuery(query).then(() => void 0);
+  }
+  deleteSession(sessionId) {
+    return this.execCli(["session", "delete", sessionId]).then(() => void 0);
+  }
+  execCli(args) {
+    const s = this.plugin.settings;
+    return new Promise((resolve, reject) => {
+      var _a, _b;
+      const [bin, spawnArgs] = this.buildCommand(s, args);
+      const child = this.spawnBinary(bin, spawnArgs);
+      let out = "";
+      let err = "";
+      (_a = child.stdout) == null ? void 0 : _a.on("data", (d) => out += d.toString());
+      (_b = child.stderr) == null ? void 0 : _b.on("data", (d) => err += d.toString());
+      child.on("error", (e) => reject(e));
+      child.on("close", (code) => {
+        if (code === 0) resolve(out);
+        else reject(new Error(err.trim() || out.trim() || `exit code ${code}`));
+      });
+    });
+  }
+  getUsageStats() {
+    const now = Date.now();
+    const t5h = now - 5 * 3600 * 1e3;
+    const t7d = now - 7 * 24 * 3600 * 1e3;
+    const t30d = now - 30 * 24 * 3600 * 1e3;
+    const query = `
+      SELECT
+        COALESCE(SUM(CASE WHEN time_updated >= ${t5h} THEN tokens_input END),0) AS h5_input,
+        COALESCE(SUM(CASE WHEN time_updated >= ${t5h} THEN tokens_output END),0) AS h5_output,
+        COALESCE(SUM(CASE WHEN time_updated >= ${t5h} THEN cost END),0) AS h5_cost,
+        COALESCE(SUM(CASE WHEN time_updated >= ${t7d} THEN tokens_input END),0) AS w_input,
+        COALESCE(SUM(CASE WHEN time_updated >= ${t7d} THEN tokens_output END),0) AS w_output,
+        COALESCE(SUM(CASE WHEN time_updated >= ${t7d} THEN cost END),0) AS w_cost,
+        COALESCE(SUM(CASE WHEN time_updated >= ${t30d} THEN tokens_input END),0) AS m_input,
+        COALESCE(SUM(CASE WHEN time_updated >= ${t30d} THEN tokens_output END),0) AS m_output,
+        COALESCE(SUM(CASE WHEN time_updated >= ${t30d} THEN cost END),0) AS m_cost
+      FROM session
+    `;
+    return this.runDbQuery(query).then((rows) => {
+      var _a;
+      const r = (_a = rows[0]) != null ? _a : {};
+      const num = (v) => Number(v != null ? v : 0);
+      return {
+        h5: { input: num(r.h5_input), output: num(r.h5_output), cost: num(r.h5_cost) },
+        week: { input: num(r.w_input), output: num(r.w_output), cost: num(r.w_cost) },
+        month: { input: num(r.m_input), output: num(r.m_output), cost: num(r.m_cost) }
+      };
+    });
+  }
+  runDbQuery(query) {
+    const s = this.plugin.settings;
+    return new Promise((resolve, reject) => {
+      var _a, _b;
+      const [bin, args] = this.buildCommand(s, ["db", query, "--format", "json"]);
+      const child = this.spawnBinary(bin, args);
+      let out = "";
+      let err = "";
+      (_a = child.stdout) == null ? void 0 : _a.on("data", (d) => out += d.toString());
+      (_b = child.stderr) == null ? void 0 : _b.on("data", (d) => err += d.toString());
+      child.on("error", (e) => reject(e));
+      child.on("close", (code) => {
+        if (code === 0) {
+          try {
+            const arr = JSON.parse(out);
+            resolve(Array.isArray(arr) ? arr : []);
+          } catch (e) {
+            resolve([]);
+          }
+        } else {
+          reject(new Error(err.trim() || out.trim() || `exit code ${code}`));
+        }
+      });
+    });
+  }
+  runStream(prompt, fileAttachments, cb) {
+    var _a, _b, _c;
+    const s = this.plugin.settings;
+    const args = ["run", "--format", "json"];
+    if (s.sessionId) args.push("--session", s.sessionId);
+    args.push("--model", s.model || DEFAULT_SETTINGS.model);
+    if (s.agent) args.push("--agent", s.agent);
+    if (s.autoApprove) args.push("--auto");
+    if (s.showThinking) args.push("--thinking");
+    args.push(prompt);
+    for (const f of fileAttachments) args.push("--file", f);
+    const [bin, spawnArgs] = this.buildCommand(s, args);
+    const adapter = this.plugin.app.vault.adapter;
+    const cwd = adapter instanceof import_obsidian4.FileSystemAdapter ? adapter.getBasePath() : void 0;
+    const child = this.spawnBinary(bin, spawnArgs, cwd);
+    let buffer = "";
+    (_a = child.stdout) == null ? void 0 : _a.on("data", (d) => {
+      buffer += d.toString();
+      let idx;
+      while ((idx = buffer.indexOf("\n")) >= 0) {
+        const line = buffer.slice(0, idx).trim();
+        buffer = buffer.slice(idx + 1);
+        if (line) this.handleLine(line, cb);
+      }
+    });
+    (_b = child.stdout) == null ? void 0 : _b.on("end", () => {
+      if (buffer.trim()) this.handleLine(buffer.trim(), cb);
+    });
+    (_c = child.stderr) == null ? void 0 : _c.on("data", (d) => {
+      if (cb.onRaw) cb.onRaw(d.toString());
+    });
+    child.on("error", (e) => cb.onError(e.message));
+    child.on("close", (code) => {
+      cb.onDone(code != null ? code : -1);
+    });
+    return child;
+  }
+  killProc(child) {
+    if (!child || child.pid === void 0) return;
+    try {
+      if (process.platform === "win32") {
+        (0, import_child_process.spawn)("taskkill", ["/pid", String(child.pid), "/T", "/F"], { windowsHide: true });
+      } else {
+        child.kill("SIGTERM");
+      }
+    } catch (e) {
+    }
+  }
+  handleLine(line, cb) {
+    var _a, _b, _c, _d, _e;
+    let ev;
+    try {
+      ev = JSON.parse(line);
+    } catch (e) {
+      (_a = cb.onRaw) == null ? void 0 : _a.call(cb, line + "\n");
+      return;
+    }
+    const sid = typeof ev.sessionID === "string" ? ev.sessionID : void 0;
+    if (sid) cb.onSession(sid);
+    const type = ev.type;
+    const part = ev.part;
+    switch (type) {
+      case "text":
+        if ((part == null ? void 0 : part.type) === "text" && typeof part.text === "string") {
+          cb.onText(part.text, String(part.id));
+        }
+        break;
+      case "reasoning":
+        if (typeof (part == null ? void 0 : part.text) === "string") {
+          cb.onReasoning(part.text, String(part.id));
+        }
+        break;
+      case "tool_use":
+        if ((part == null ? void 0 : part.type) === "tool") {
+          const state = ((_b = part.state) == null ? void 0 : _b.status) || "completed";
+          cb.onStep({
+            id: String(part.callID || part.id || "step-" + Date.now()),
+            tool: String(part.tool),
+            title: String(((_c = part.state) == null ? void 0 : _c.title) || part.tool || "Strumento"),
+            state: String(state),
+            input: (_d = part.state) == null ? void 0 : _d.input,
+            output: (_e = part.state) == null ? void 0 : _e.output
+          });
+        }
+        break;
+      case "step_finish":
+        cb.onFinish({
+          tokens: part == null ? void 0 : part.tokens,
+          cost: typeof (part == null ? void 0 : part.cost) === "number" ? part.cost : void 0
+        });
+        break;
+      case "error":
+        cb.onError(this.errorMessage(ev.error));
+        break;
+      default:
+        break;
+    }
+    if (type !== "reasoning" && (part == null ? void 0 : part.type) === "reasoning" && typeof (part == null ? void 0 : part.text) === "string") {
+      cb.onReasoning(part.text, String(part.id));
+    }
+  }
+  errorMessage(err) {
+    var _a;
+    if (!err) return "Errore sconosciuto";
+    const msg = ((_a = err.data) == null ? void 0 : _a.message) || err.message || JSON.stringify(err);
+    return String(msg);
+  }
+  buildCommand(s, args) {
+    return [s.binaryPath, args];
+  }
+  spawnBinary(bin, args, cwd) {
+    const isWin = process.platform === "win32";
+    const resolved = isWin ? this.resolveBinary(bin) : null;
+    const shell = isWin && !resolved && !(bin.includes("\\") || bin.includes("/"));
+    const options = {
+      cwd,
+      shell,
+      windowsHide: true,
+      env: process.env,
+      // IMPORTANTE: stdin deve essere "ignore", non "pipe". Con stdin a pipe
+      // `opencode run` resta in hang senza produrre output su Windows.
+      stdio: ["ignore", "pipe", "pipe"]
+    };
+    return (0, import_child_process.spawn)(resolved != null ? resolved : bin, args, options);
+  }
+  resolveBinary(bin) {
+    if (!this.resolvedBinaryTried) {
+      this.resolvedBinaryTried = true;
+      this.resolvedBinary = this.findWindowsBinary(bin);
+    }
+    return this.resolvedBinary;
+  }
+  findWindowsBinary(bin) {
+    var _a;
+    if (bin.toLowerCase().endsWith(".exe")) return bin;
+    const hasPath = bin.includes("\\") || bin.includes("/");
+    if (hasPath) {
+      const resolved = this.resolveCmdShim(bin);
+      if (resolved) return resolved;
+      const dir = (0, import_path.dirname)(bin);
+      const exe = (0, import_path.join)(dir, (0, import_path.basename)(bin).replace(/\.(cmd|bat|ps1)$/i, "") + ".exe");
+      return (0, import_fs.existsSync)(exe) ? exe : null;
+    }
+    const dirs = ((_a = process.env.PATH) != null ? _a : "").split(";").filter(Boolean);
+    for (const dir of dirs) {
+      const cmdPath = (0, import_path.join)(dir, bin + ".cmd");
+      const exePath = (0, import_path.join)(dir, bin + ".exe");
+      if ((0, import_fs.existsSync)(cmdPath)) {
+        const resolved = this.resolveCmdShim(cmdPath);
+        if (resolved) return resolved;
+      }
+      if ((0, import_fs.existsSync)(exePath)) return exePath;
+    }
+    return null;
+  }
+  resolveCmdShim(shimPath) {
+    try {
+      const content = (0, import_fs.readFileSync)(shimPath, "utf8");
+      const dir = (0, import_path.dirname)(shimPath);
+      const m = content.match(/"([^"]+\.exe)"/i);
+      if (m) {
+        const target = m[1].replace(/%dp0%/gi, dir).replace(/%base%/gi, dir);
+        if ((0, import_fs.existsSync)(target)) return target;
+      }
+    } catch (e) {
+    }
+    return null;
+  }
+};
+
+// src/tikzRenderer.ts
+var import_child_process2 = require("child_process");
+var import_crypto = require("crypto");
+var import_fs2 = require("fs");
+var import_os = require("os");
+var import_path2 = require("path");
+var TikzRenderer = class {
+  constructor(plugin) {
+    this.inFlight = /* @__PURE__ */ new Map();
+    this.plugin = plugin;
+    this.cacheDir = (0, import_path2.join)((0, import_os.tmpdir)(), "opencode-vault-tikz");
+    (0, import_fs2.mkdirSync)(this.cacheDir, { recursive: true });
+  }
+  async render(code) {
+    const s = this.plugin.settings;
+    const tex = this.buildTexSource(code, s.tikzExtraPreamble);
+    const hash = (0, import_crypto.createHash)("sha256").update(tex).digest("hex").slice(0, 32);
+    const dir = (0, import_path2.join)(this.cacheDir, hash);
+    const svgFile = (0, import_path2.join)(dir, "main.svg");
+    if ((0, import_fs2.existsSync)(svgFile)) {
+      return (0, import_fs2.readFileSync)(svgFile, "utf8");
+    }
+    const existing = this.inFlight.get(hash);
+    if (existing) return existing;
+    const promise = this.doRender(tex, dir, svgFile, s).finally(() => {
+      this.inFlight.delete(hash);
+    });
+    this.inFlight.set(hash, promise);
+    return promise;
+  }
+  async doRender(tex, dir, svgFile, s) {
+    (0, import_fs2.mkdirSync)(dir, { recursive: true });
+    (0, import_fs2.writeFileSync)((0, import_path2.join)(dir, "main.tex"), tex, "utf8");
+    const latexPdf = this.resolveLatex("pdf");
+    const latexDvi = this.resolveLatex("dvi");
+    const dvisvgm = this.resolveDvisvgm();
+    const engines = [];
+    if (s.tikzEngine !== "dvi" && latexPdf && dvisvgm) {
+      engines.push({
+        label: "pdflatex + dvisvgm",
+        build: async (d) => {
+          await this.run(latexPdf, ["--interaction=nonstopmode", "--halt-on-error", "--disable-write18", "--enable-installer", "main.tex"], d);
+          await this.run(dvisvgm, ["--pdf", "--no-fonts", "--precision=2", "main.pdf"], d);
+        }
+      });
+    }
+    if (s.tikzEngine !== "pdf" && latexDvi && dvisvgm) {
+      engines.push({
+        label: "latex + dvisvgm",
+        build: async (d) => {
+          await this.run(latexDvi, ["--interaction=nonstopmode", "--halt-on-error", "--disable-write18", "--enable-installer", "main.tex"], d);
+          await this.run(dvisvgm, ["--no-fonts", "--precision=2", "main.dvi"], d);
+        }
+      });
+    }
+    if (engines.length === 0) {
+      const missing = [];
+      if (!latexPdf && !latexDvi) missing.push("latex/pdflatex");
+      if (!dvisvgm) missing.push("dvisvgm");
+      throw new Error(
+        `Binario ${missing.join(" e ")} non trovato. Verifica l'installazione di MiKTeX oppure imposta i percorsi nelle impostazioni del plugin.`
+      );
+    }
+    const errors = [];
+    for (const engine of engines) {
+      try {
+        await engine.build(dir);
+        if (!(0, import_fs2.existsSync)(svgFile)) {
+          throw new Error(`dvisvgm non ha prodotto alcun SVG (engine ${engine.label})`);
+        }
+        const svg = (0, import_fs2.readFileSync)(svgFile, "utf8");
+        return this.cleanSvg(svg);
+      } catch (e) {
+        errors.push(e instanceof Error ? e.message : String(e));
+        for (const f of ["main.pdf", "main.dvi"]) {
+          try {
+            (0, import_fs2.rmSync)((0, import_path2.join)(dir, f), { force: true });
+          } catch (e2) {
+          }
+        }
+      }
+    }
+    throw new Error(this.buildErrorMessage(errors, dir));
+  }
+  clearCache() {
+    try {
+      (0, import_fs2.rmSync)(this.cacheDir, { recursive: true, force: true });
+      (0, import_fs2.mkdirSync)(this.cacheDir, { recursive: true });
+    } catch (e) {
+    }
+  }
+  buildTexSource(code, extraPreamble) {
+    const src = code.replace(/\r\n/g, "\n").trim();
+    if (!src) throw new Error("Il blocco TikZ \xE8 vuoto.");
+    if (/\\documentclass\s*\{/.test(src)) {
+      return src;
+    }
+    const envMatch = src.match(/\\begin\{(\w+)\}/);
+    let preamble = "";
+    let body = src;
+    if (envMatch && envMatch.index !== void 0) {
+      preamble = src.slice(0, envMatch.index).trim();
+      body = src.slice(envMatch.index).trim();
+      const env = envMatch[1];
+      if (env !== "tikzpicture" && env !== "tikzcd") {
+        body = "\\begin{tikzpicture}\n" + body + "\n\\end{tikzpicture}";
+      }
+    } else if (!/\\tikz\s*[{\[]/.test(src)) {
+      body = "\\begin{tikzpicture}\n" + src + "\n\\end{tikzpicture}";
+    }
+    const parts = ["\\documentclass[border=5pt]{standalone}", "\\usepackage{tikz}"];
+    if (/\\begin\{tikzcd\}/.test(src)) parts.push("\\usepackage{tikz-cd}");
+    if (/(\\begin\{axis\}|\\addplot)/.test(src)) {
+      parts.push("\\usepackage{pgfplots}", "\\pgfplotsset{compat=1.18}");
+    }
+    if (/\\begin\{forest\}/.test(src)) parts.push("\\usepackage{forest}");
+    const extra = extraPreamble.trim();
+    if (extra) parts.push(extra);
+    if (preamble) parts.push(preamble);
+    parts.push("\\begin{document}", body, "\\end{document}");
+    return parts.join("\n");
+  }
+  cleanSvg(svg) {
+    return svg.replace(/^\s*<\?xml[^>]*\?>\s*/, "").replace(/^\s*<!--[\s\S]*?-->\s*/, "").trim();
+  }
+  buildErrorMessage(errors, dir) {
+    const logFile = (0, import_path2.join)(dir, "main.log");
+    let tail = "";
+    if ((0, import_fs2.existsSync)(logFile)) {
+      const lines = (0, import_fs2.readFileSync)(logFile, "utf8").split(/\r?\n/);
+      const errs = lines.filter(
+        (l) => /^!|^l\.\d+|error|Error|Undefined control sequence|File .* not found|cannot|runaway/i.test(l)
+      );
+      tail = (errs.length ? errs : lines).slice(-25).join("\n");
+    }
+    const detail = errors.length ? errors.map((e, i) => `Tentativo ${i + 1}: ${e}`).join("\n\n") : "";
+    return detail + (tail ? `
+
+--- log LaTeX ---
+${tail}` : "");
+  }
+  resolveLatex(engine) {
+    var _a;
+    const cfg = this.plugin.settings.tikzLatexBin.trim();
+    if (cfg) return this.withExe(cfg);
+    return (_a = this.findInPath(engine === "pdf" ? "pdflatex" : "latex")) != null ? _a : "";
+  }
+  resolveDvisvgm() {
+    var _a;
+    const cfg = this.plugin.settings.tikzDvisvgmBin.trim();
+    if (cfg) return this.withExe(cfg);
+    return (_a = this.findInPath("dvisvgm")) != null ? _a : "";
+  }
+  withExe(bin) {
+    if (process.platform !== "win32") return bin;
+    if (bin.toLowerCase().endsWith(".exe") || bin.includes("\\") || bin.includes("/")) return bin;
+    return bin + ".exe";
+  }
+  findInPath(name) {
+    var _a;
+    const isWin = process.platform === "win32";
+    const exts = isWin ? [".exe", ".cmd", ".bat"] : [""];
+    const dirs = ((_a = process.env.PATH) != null ? _a : "").split(isWin ? ";" : ":").filter(Boolean);
+    for (const dir of dirs) {
+      for (const ext of exts) {
+        const p = (0, import_path2.join)(dir, name + ext);
+        if ((0, import_fs2.existsSync)(p)) return p;
+      }
+    }
+    return null;
+  }
+  run(bin, args, cwd) {
+    return new Promise((resolve, reject) => {
+      (0, import_child_process2.execFile)(
+        bin,
+        args,
+        { cwd, windowsHide: true, timeout: 12e4, env: process.env },
+        (error, _stdout, stderr) => {
+          if (error) {
+            const e = error;
+            if (e.code === "ENOENT") {
+              reject(new Error(`Eseguibile non trovato: ${bin}`));
+            } else if (typeof e.code === "number") {
+              reject(new Error(`Errore (exit code ${e.code}) da ${bin}: ${(stderr || "").trim() || _stdout.trim()}`));
+            } else {
+              reject(new Error(`${bin}: ${e.message}`));
+            }
+          } else {
+            resolve();
+          }
+        }
+      );
+    });
+  }
+};
+
+// src/tikzPreview.ts
+var import_state = require("@codemirror/state");
+var import_view = require("@codemirror/view");
+var TIKZ_LANG = /^```(tikz|tikzcd|pgfplots)(\s|$)/i;
+var CLOSING_FENCE = /^```\s*$/;
+function findTikzBlocks(state) {
+  const blocks = [];
+  const doc = state.doc;
+  for (let n = 1; n <= doc.lines; n++) {
+    const line = doc.line(n);
+    if (!TIKZ_LANG.test(line.text.trim())) continue;
+    let closeLine = 0;
+    for (let k = n + 1; k <= doc.lines; k++) {
+      const l = doc.line(k);
+      if (CLOSING_FENCE.test(l.text.trim())) {
+        closeLine = k;
+        break;
+      }
+      if (k - n > 5e3) break;
+    }
+    if (closeLine) {
+      const to = doc.line(closeLine).to;
+      const codeLines = [];
+      for (let x = n + 1; x < closeLine; x++) {
+        codeLines.push(doc.line(x).text);
+      }
+      const code = codeLines.join("\n").trim();
+      if (code) blocks.push({ to, code });
+      n = closeLine;
+    }
+  }
+  return blocks;
+}
+var TikzPreviewWidget = class extends import_view.WidgetType {
+  constructor(code, renderFn) {
+    super();
+    this.code = code;
+    this.renderFn = renderFn;
+    this.destroyed = false;
+  }
+  eq(other) {
+    return other.code === this.code;
+  }
+  toDOM() {
+    const wrap = document.createElement("div");
+    wrap.className = "opencode-tikz-live";
+    const status = document.createElement("div");
+    status.className = "opencode-tikz-status";
+    status.textContent = "Rendering TikZ\u2026";
+    wrap.appendChild(status);
+    this.renderFn(this.code).then((svg) => {
+      if (this.destroyed) return;
+      wrap.replaceChildren();
+      const fig = document.createElement("div");
+      fig.className = "opencode-tikz-figure";
+      fig.innerHTML = svg;
+      wrap.appendChild(fig);
+    }).catch((err) => {
+      if (this.destroyed) return;
+      wrap.replaceChildren();
+      const errBox = document.createElement("div");
+      errBox.className = "opencode-tikz-error";
+      const title = document.createElement("div");
+      title.className = "opencode-tikz-error-title";
+      title.textContent = "Errore di rendering TikZ";
+      errBox.appendChild(title);
+      const pre = document.createElement("pre");
+      pre.className = "opencode-tikz-error-msg";
+      pre.textContent = err instanceof Error ? err.message : String(err);
+      errBox.appendChild(pre);
+      wrap.appendChild(errBox);
+    });
+    return wrap;
+  }
+  destroy() {
+    this.destroyed = true;
+  }
+  ignoreEvent() {
+    return true;
+  }
+};
+function computeDecorations(state, plugin) {
+  if (!plugin.settings.tikzEnabled || !plugin.settings.tikzLivePreview) return import_view.Decoration.none;
+  const builder = new import_state.RangeSetBuilder();
+  const render = (code) => plugin.tikzRenderer.render(code);
+  try {
+    for (const block of findTikzBlocks(state)) {
+      builder.add(
+        block.to,
+        block.to,
+        import_view.Decoration.widget({ widget: new TikzPreviewWidget(block.code, render), block: true, side: 1 })
+      );
+    }
+  } catch (e) {
+    console.error("opencode-vault: errore nella costruzione delle decorazioni TikZ:", e);
+  }
+  return builder.finish();
+}
+var tikzRecalcEffect = import_state.StateEffect.define();
+function tikzPreviewExtension(plugin) {
+  const field = import_state.StateField.define({
+    create(state) {
+      return computeDecorations(state, plugin);
+    },
+    update(decorations, tr) {
+      let next = decorations;
+      for (const e of tr.effects) {
+        if (e.is(tikzRecalcEffect)) {
+          next = computeDecorations(tr.state, plugin);
+        }
+      }
+      if (tr.docChanged) {
+        next = computeDecorations(tr.state, plugin);
+      }
+      return next;
+    },
+    provide: (f) => import_view.EditorView.decorations.from(f)
+  });
+  return [
+    field,
+    import_view.EditorView.updateListener.of((update) => {
+      if (update.viewportChanged) {
+        update.view.dispatch({ effects: tikzRecalcEffect.of(null) });
+      }
+    })
+  ];
+}
+
+// src/main.ts
+var OpencodePlugin = class extends import_obsidian5.Plugin {
+  constructor() {
+    super(...arguments);
+    this.histories = {};
+  }
+  async onload() {
+    var _a;
+    const data = (_a = await this.loadData()) != null ? _a : {};
+    const { histories, ...rest } = data;
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, rest);
+    this.histories = histories != null ? histories : {};
+    this.runner = new OpencodeRunner(this);
+    this.tikzRenderer = new TikzRenderer(this);
+    this.registerEditorExtension(tikzPreviewExtension(this));
+    this.registerMarkdownPostProcessor(
+      async (el) => {
+        if (!this.settings.tikzEnabled) return;
+        try {
+          const candidates = Array.from(
+            el.querySelectorAll(
+              "pre > code.language-tikz, pre > code.language-tikzcd, pre > code.language-pgfplots"
+            )
+          );
+          for (const codeEl of candidates) {
+            try {
+              const pre = codeEl.parentElement;
+              if (!pre) continue;
+              const code = codeEl.innerText;
+              const container = this.buildTikzContainer(code);
+              pre.replaceWith(container);
+              await this.fillTikzContainer(container, code);
+            } catch (e) {
+              console.error("opencode-vault: errore nel post-processor TikZ:", e);
+            }
+          }
+        } catch (e) {
+          console.error("opencode-vault: errore nel post-processor TikZ:", e);
+        }
+      },
+      -1e3
+    );
+    this.registerView(CHAT_VIEW_TYPE, (leaf) => new ChatView(leaf, this));
+    this.addRibbonIcon("bot", "Nuova chat opencode", () => {
+      void this.openNewChatView();
+    });
+    this.addCommand({
+      id: "open-chat",
+      name: "Apri chat opencode",
+      callback: () => this.openChatView()
+    });
+    this.addCommand({
+      id: "new-chat",
+      name: "Nuova chat opencode",
+      callback: () => this.openNewChatView()
+    });
+    this.addCommand({
+      id: "continue-new-session",
+      name: "Continua in una nuova sessione (riassumendo)",
+      callback: async () => {
+        const chat = await this.openChatView();
+        chat.continueInNewSession();
+      }
+    });
+    this.addCommand({
+      id: "send-selection",
+      name: "Invia selezione a opencode",
+      editorCallback: (editor, view) => {
+        const selection = editor.getSelection();
+        if (!selection.trim()) {
+          new import_obsidian5.Notice("Nessun testo selezionato");
+          return;
+        }
+        const label = view.file ? view.file.path : "selezione";
+        this.openChatView().then((chat) => {
+          chat.setContext({ label, content: selection });
+          chat.focusInput();
+        });
+      }
+    });
+    this.addCommand({
+      id: "use-current-note",
+      name: "Usa la nota corrente come contesto",
+      callback: async () => {
+        const file = this.app.workspace.getActiveFile();
+        if (!file) {
+          new import_obsidian5.Notice("Nessuna nota attiva");
+          return;
+        }
+        const content = await this.app.vault.cachedRead(file);
+        const chat = await this.openChatView();
+        chat.setContext({ label: file.path, content });
+        chat.focusInput();
+      }
+    });
+    this.addCommand({
+      id: "analyze-current-note",
+      name: "Analizza la nota corrente con opencode",
+      callback: async () => {
+        const file = this.app.workspace.getActiveFile();
+        if (!file) {
+          new import_obsidian5.Notice("Nessuna nota attiva");
+          return;
+        }
+        const content = await this.app.vault.cachedRead(file);
+        const chat = await this.openChatView();
+        chat.setContext({ label: file.path, content });
+        chat.sendText(
+          "Analizza il contenuto della nota allegata qui sotto: fornisci un riassunto, i punti chiave, eventuali collegamenti con altre note del vault e suggerimenti per svilupparla."
+        );
+      }
+    });
+    this.addCommand({
+      id: "reset-session",
+      name: "Azzera la sessione opencode",
+      callback: async () => {
+        this.settings.sessionId = "";
+        await this.saveSettings();
+        new import_obsidian5.Notice("Sessione opencode azzerata.");
+      }
+    });
+    this.addSettingTab(new OpencodeSettingTab(this.app, this));
+  }
+  async openChatView() {
+    const existing = this.app.workspace.getLeavesOfType(CHAT_VIEW_TYPE)[0];
+    if (existing) {
+      await this.app.workspace.revealLeaf(existing);
+      return existing.view;
+    }
+    return this.openNewChatView();
+  }
+  async openNewChatView() {
+    const { workspace } = this.app;
+    let leaf;
+    try {
+      leaf = workspace.getLeaf("split", "vertical");
+    } catch (e) {
+      leaf = workspace.getLeaf(true);
+    }
+    await leaf.setViewState({ type: CHAT_VIEW_TYPE, active: true });
+    await workspace.revealLeaf(leaf);
+    return leaf.view;
+  }
+  onunload() {
+  }
+  buildTikzContainer(code) {
+    const container = document.createElement("div");
+    container.className = "opencode-tikz-result";
+    container.dataset.tikzCode = code;
+    const status = container.createEl("div", { cls: "opencode-tikz-status" });
+    status.setText("Rendering TikZ con TeX locale\u2026");
+    status.addClass("opencode-tikz-loading");
+    return container;
+  }
+  async fillTikzContainer(container, code) {
+    const status = container.querySelector(".opencode-tikz-status");
+    try {
+      const svg = await this.tikzRenderer.render(code);
+      status == null ? void 0 : status.remove();
+      const figure = container.createEl("div", { cls: "opencode-tikz-figure" });
+      figure.innerHTML = svg;
+      const toggle = container.createEl("details", { cls: "opencode-tikz-toggle" });
+      const summary = toggle.createEl("summary");
+      summary.setText("Mostra codice TikZ");
+      const codePre = toggle.createEl("pre");
+      const codeOut = codePre.createEl("code");
+      codeOut.setText(code);
+    } catch (e) {
+      status == null ? void 0 : status.remove();
+      const errBox = container.createEl("div", { cls: "opencode-tikz-error" });
+      errBox.createEl("div", {
+        text: "Errore di rendering TikZ",
+        cls: "opencode-tikz-error-title"
+      });
+      errBox.createEl("pre", {
+        text: e instanceof Error ? e.message : String(e),
+        cls: "opencode-tikz-error-msg"
+      });
+      const toggle = errBox.createEl("details", { cls: "opencode-tikz-toggle" });
+      const summary = toggle.createEl("summary");
+      summary.setText("Mostra codice TikZ");
+      const codePre = toggle.createEl("pre");
+      const codeOut = codePre.createEl("code");
+      codeOut.setText(code);
+    }
+  }
+  getHistory(sessionId) {
+    var _a;
+    return (_a = this.histories[sessionId]) != null ? _a : [];
+  }
+  async appendHistory(sessionId, msg) {
+    if (!sessionId) return;
+    if (!this.histories[sessionId]) this.histories[sessionId] = [];
+    const arr = this.histories[sessionId];
+    arr.push(msg);
+    if (arr.length > 100) arr.splice(0, arr.length - 100);
+    await this.saveData({ ...this.settings, histories: this.histories });
+  }
+  async deleteHistory(sessionId) {
+    delete this.histories[sessionId];
+    await this.saveData({ ...this.settings, histories: this.histories });
+  }
+  async saveSettings() {
+    await this.saveData({ ...this.settings, histories: this.histories });
+  }
+};

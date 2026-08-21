@@ -1,0 +1,26 @@
+{
+  "name": "opencode-vault",
+  "version": "0.2.0",
+  "description": "Opencode integration for Obsidian",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+  },
+  "keywords": [
+    "obsidian",
+    "opencode",
+    "ai",
+    "chat"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@codemirror/language": "^6.12.4",
+    "@lezer/common": "^1.5.2",
+    "@types/node": "^20.11.0",
+    "builtin-modules": "^3.3.0",
+    "esbuild": "^0.21.5",
+    "obsidian": "^1.5.7",
+    "typescript": "^5.4.5"
+  }
+}

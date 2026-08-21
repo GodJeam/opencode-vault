@@ -1,0 +1,9 @@
+{
+  "id": "opencode-vault",
+  "name": "Opencode Vault",
+  "version": "0.2.0",
+  "minAppVersion": "1.5.0",
+  "description": "Chatta con opencode direttamente dal tuo vault: analizza note, elabora selezioni e lavora sul vault senza uscire da Obsidian.",
+  "author": "Giuli",
+  "isDesktopOnly": true
+}
