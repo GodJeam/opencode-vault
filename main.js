@@ -1243,7 +1243,6 @@ var AssistantBubble = class {
     this.steps = /* @__PURE__ */ new Map();
     this.rawText = "";
     this.rawReasoning = "";
-    this.renderTimer = null;
     this.row.createDiv({ cls: "opencode-meta", text: "Opencode" });
     this.reasoningEl = this.row.createEl("details", { cls: "opencode-reasoning hidden" });
     const summary = this.reasoningEl.createEl("summary");
@@ -1256,7 +1255,8 @@ var AssistantBubble = class {
   }
   setText(text) {
     this.rawText = text;
-    this.scheduleRender();
+    this.contentEl.textContent = text;
+    this.view.scheduleScroll();
   }
   setReasoning(text) {
     this.rawReasoning = text;
@@ -1274,7 +1274,7 @@ var AssistantBubble = class {
       icon.createDiv({ cls: "opencode-step-spinner" });
       const main = row.createDiv({ cls: "opencode-step-main" });
       const title = main.createDiv({ cls: "opencode-step-title" });
-      title.setText(`${step.tool}: ${step.title}`);
+      title.setText(`${step.tool}: ${this.stepTitle(step)}`);
       if (showIO) this.buildStepDetails(main, step);
       this.steps.set(step.id, { row, icon, status: "running" });
       this.view.scheduleScroll();
@@ -1302,7 +1302,7 @@ var AssistantBubble = class {
       (0, import_obsidian3.setIcon)(icon, step.state === "error" ? "x" : "check");
       const main = row.createDiv({ cls: "opencode-step-main" });
       const title = main.createDiv({ cls: "opencode-step-title" });
-      title.setText(`${step.tool}: ${step.title}`);
+      title.setText(`${step.tool}: ${this.stepTitle(step)}`);
       if (showIO) this.buildStepDetails(main, step);
       this.steps.set(step.id, { row, icon, status: step.state });
     }
@@ -1316,7 +1316,10 @@ var AssistantBubble = class {
   }
   serializeStep(step) {
     const parts = [];
-    const fmt = (v) => typeof v === "string" ? v : JSON.stringify(v, null, 2);
+    const fmt = (v) => {
+      const s = typeof v === "string" ? v : JSON.stringify(v, null, 2);
+      return s.length > 4e3 ? s.slice(0, 4e3) + "\u2026" : s;
+    };
     if (step.input !== void 0 && step.input !== null) {
       parts.push("INPUT:\n" + fmt(step.input));
     }
@@ -1324,6 +1327,10 @@ var AssistantBubble = class {
       parts.push("OUTPUT:\n" + fmt(step.output));
     }
     return parts.join("\n\n---\n\n") || "(nessun dettaglio)";
+  }
+  stepTitle(step) {
+    const t = String(step.title || step.tool || "Strumento");
+    return t.length > 120 ? t.slice(0, 117) + "\u2026" : t;
   }
   setFinish(info) {
     var _a, _b, _c, _d;
@@ -1349,7 +1356,10 @@ var AssistantBubble = class {
     };
   }
   finalize() {
-    this.flushRender();
+    this.contentEl.empty();
+    if (this.rawText.trim()) {
+      import_obsidian3.MarkdownRenderer.render(this.app, this.rawText, this.contentEl, "", this.view);
+    }
     this.status.setText("");
     for (const rec of this.steps.values()) {
       if (rec.status === "running") {
@@ -1359,22 +1369,6 @@ var AssistantBubble = class {
         rec.icon.empty();
         (0, import_obsidian3.setIcon)(rec.icon, "check");
       }
-    }
-  }
-  scheduleRender() {
-    if (this.renderTimer !== null) clearTimeout(this.renderTimer);
-    this.renderTimer = window.setTimeout(() => this.flushRender(), 200);
-  }
-  flushRender() {
-    if (this.renderTimer !== null) {
-      clearTimeout(this.renderTimer);
-      this.renderTimer = null;
-    }
-    this.contentEl.empty();
-    if (this.rawText.trim()) {
-      import_obsidian3.MarkdownRenderer.render(this.app, this.rawText, this.contentEl, "", this.view).then(() => {
-        this.view.scrollToBottom();
-      });
     }
   }
 };

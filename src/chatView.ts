@@ -1087,13 +1087,12 @@ class AssistantBubble {
   private stepsEl: HTMLElement;
   private steps = new Map<string, { row: HTMLElement; icon: HTMLElement; status: string }>();
   private contentEl: HTMLElement;
-  private statsEl: HTMLElement;
+private statsEl: HTMLElement;
   status: HTMLElement;
   private rawText = "";
   private rawReasoning = "";
   private lastTokens?: { total?: number; input?: number; output?: number };
   private lastCost?: number;
-  private renderTimer: number | null = null;
 
   constructor(
     private row: HTMLElement,
@@ -1112,9 +1111,13 @@ class AssistantBubble {
     this.status = this.row.createDiv({ cls: "opencode-status" });
   }
 
-  setText(text: string): void {
+setText(text: string): void {
     this.rawText = text;
-    this.scheduleRender();
+    // Durante lo streaming mostriamo il testo grezzo (economico): il render
+    // Markdown completo avviene una sola volta in finalize(). Re-renderizzare
+    // il markdown a ogni token bloccava la UI sulle risposte lunghe.
+    this.contentEl.textContent = text;
+    this.view.scheduleScroll();
   }
 
   setReasoning(text: string): void {
@@ -1135,7 +1138,7 @@ class AssistantBubble {
       icon.createDiv({ cls: "opencode-step-spinner" });
       const main = row.createDiv({ cls: "opencode-step-main" });
       const title = main.createDiv({ cls: "opencode-step-title" });
-      title.setText(`${step.tool}: ${step.title}`);
+      title.setText(`${step.tool}: ${this.stepTitle(step)}`);
       if (showIO) this.buildStepDetails(main, step);
       this.steps.set(step.id, { row, icon, status: "running" });
       this.view.scheduleScroll();
@@ -1164,7 +1167,7 @@ class AssistantBubble {
       setIcon(icon, step.state === "error" ? "x" : "check");
       const main = row.createDiv({ cls: "opencode-step-main" });
       const title = main.createDiv({ cls: "opencode-step-title" });
-      title.setText(`${step.tool}: ${step.title}`);
+      title.setText(`${step.tool}: ${this.stepTitle(step)}`);
       if (showIO) this.buildStepDetails(main, step);
       this.steps.set(step.id, { row, icon, status: step.state });
     }
@@ -1178,10 +1181,12 @@ class AssistantBubble {
     pre.setText(this.serializeStep(step));
   }
 
-  private serializeStep(step: StepInfo): string {
+private serializeStep(step: StepInfo): string {
     const parts: string[] = [];
-    const fmt = (v: unknown): string =>
-      typeof v === "string" ? v : JSON.stringify(v, null, 2);
+    const fmt = (v: unknown): string => {
+      const s = typeof v === "string" ? v : JSON.stringify(v, null, 2);
+      return s.length > 4000 ? s.slice(0, 4000) + "…" : s;
+    };
     if (step.input !== undefined && step.input !== null) {
       parts.push("INPUT:\n" + fmt(step.input));
     }
@@ -1189,6 +1194,11 @@ class AssistantBubble {
       parts.push("OUTPUT:\n" + fmt(step.output));
     }
     return parts.join("\n\n---\n\n") || "(nessun dettaglio)";
+  }
+
+  private stepTitle(step: StepInfo): string {
+    const t = String(step.title || step.tool || "Strumento");
+    return t.length > 120 ? t.slice(0, 117) + "…" : t;
   }
 
   setFinish(info: FinishInfo): void {
@@ -1215,8 +1225,11 @@ class AssistantBubble {
     };
   }
 
-  finalize(): void {
-    this.flushRender();
+finalize(): void {
+    this.contentEl.empty();
+    if (this.rawText.trim()) {
+      MarkdownRenderer.render(this.app, this.rawText, this.contentEl, "", this.view);
+    }
     this.status.setText("");
     for (const rec of this.steps.values()) {
       if (rec.status === "running") {
@@ -1228,22 +1241,5 @@ class AssistantBubble {
       }
     }
   }
-
-  private scheduleRender(): void {
-    if (this.renderTimer !== null) clearTimeout(this.renderTimer);
-    this.renderTimer = window.setTimeout(() => this.flushRender(), 200);
-  }
-
-  private flushRender(): void {
-    if (this.renderTimer !== null) {
-      clearTimeout(this.renderTimer);
-      this.renderTimer = null;
-    }
-    this.contentEl.empty();
-    if (this.rawText.trim()) {
-      MarkdownRenderer.render(this.app, this.rawText, this.contentEl, "", this.view).then(() => {
-        this.view.scrollToBottom();
-      });
-    }
-  }
 }
+
