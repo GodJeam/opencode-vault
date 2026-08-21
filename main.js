@@ -313,7 +313,8 @@ var ChatView = class extends import_obsidian3.ItemView {
     });
   }
   onClose() {
-    if (this.currentProc) this.plugin.runner.killProc(this.currentProc);
+    var _a;
+    (_a = this.currentProc) == null ? void 0 : _a.abort();
     this.currentProc = null;
     return super.onClose();
   }
@@ -598,8 +599,9 @@ var ChatView = class extends import_obsidian3.ItemView {
     this.stopBtn.setText("Stop");
     this.stopBtn.addClass("hidden");
     this.stopBtn.addEventListener("click", () => {
+      var _a;
       this.stoppedByUser = true;
-      if (this.currentProc) this.plugin.runner.killProc(this.currentProc);
+      (_a = this.currentProc) == null ? void 0 : _a.abort();
     });
   }
   updateModelBtn() {
@@ -1381,6 +1383,7 @@ var AssistantBubble = class {
 var import_child_process = require("child_process");
 var import_fs = require("fs");
 var import_path = require("path");
+var import_net = require("net");
 var import_obsidian4 = require("obsidian");
 var OpencodeRunner = class {
   constructor(plugin) {
@@ -1390,6 +1393,10 @@ var OpencodeRunner = class {
     this.modelsCacheAt = 0;
     this.sessionsCache = null;
     this.sessionsCacheAt = 0;
+    this.serverProc = null;
+    this.serverBaseUrl = null;
+    this.serverPassword = "";
+    this.serverReady = null;
     this.plugin = plugin;
   }
   getVersion() {
@@ -1546,6 +1553,12 @@ var OpencodeRunner = class {
     });
   }
   runStream(prompt, fileAttachments, cb) {
+    if (fileAttachments.length === 0) {
+      return this.tryServerRun(prompt, cb);
+    }
+    return this.cliRunStream(prompt, fileAttachments, cb);
+  }
+  cliRunStream(prompt, fileAttachments, cb) {
     var _a, _b, _c;
     const s = this.plugin.settings;
     const args = ["run", "--format", "json"];
@@ -1580,7 +1593,227 @@ var OpencodeRunner = class {
     child.on("close", (code) => {
       cb.onDone(code != null ? code : -1);
     });
-    return child;
+    return { abort: () => this.killProc(child) };
+  }
+  // ===== Server persistente (opencode serve) =====
+  stopServer() {
+    if (this.serverProc) {
+      this.killProc(this.serverProc);
+      this.serverProc = null;
+    }
+    this.serverBaseUrl = null;
+    this.serverReady = null;
+  }
+  tryServerRun(prompt, cb) {
+    const ac = new AbortController();
+    let finished = false;
+    let xhr = null;
+    let sid = null;
+    let cliHandle = null;
+    const finish = (code) => {
+      if (!finished) {
+        finished = true;
+        cb.onDone(code);
+      }
+    };
+    void (async () => {
+      try {
+        const baseUrl = await this.ensureServer();
+        sid = await this.ensureSession(baseUrl, cb);
+        await new Promise((resolveStream) => {
+          const ctx = { assistantId: null };
+          xhr = this.openEventStream(baseUrl, (ev) => this.handleServerEvent(ev, sid, cb, ctx));
+          void this.postMessage(baseUrl, sid, prompt).then(() => resolveStream()).catch((e) => {
+            cb.onError(e instanceof Error ? e.message : String(e));
+            resolveStream();
+          });
+        });
+        finish(0);
+      } catch (e) {
+        if (ac.signal.aborted) {
+          finish(1);
+          return;
+        }
+        cliHandle = this.cliRunStream(prompt, [], cb);
+      }
+    })();
+    return {
+      abort: () => {
+        ac.abort();
+        if (xhr) xhr.abort();
+        if (sid && this.serverBaseUrl) {
+          void this.serverRequest(this.serverBaseUrl, "POST", `/session/${sid}/abort`);
+        }
+        cliHandle == null ? void 0 : cliHandle.abort();
+        finish(1);
+      }
+    };
+  }
+  async ensureServer() {
+    if (this.serverReady) return this.serverReady;
+    this.serverReady = this.startServer().catch((e) => {
+      this.serverReady = null;
+      this.stopServer();
+      throw e;
+    });
+    return this.serverReady;
+  }
+  async startServer() {
+    const s = this.plugin.settings;
+    const adapter = this.plugin.app.vault.adapter;
+    const cwd = adapter instanceof import_obsidian4.FileSystemAdapter ? adapter.getBasePath() : void 0;
+    this.serverPassword = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    const port = await this.pickFreePort();
+    const baseUrl = `http://127.0.0.1:${port}`;
+    const proc = this.spawnBinary(
+      s.binaryPath,
+      ["serve", "--port", String(port), "--hostname", "127.0.0.1"],
+      cwd,
+      { OPENCODE_SERVER_PASSWORD: this.serverPassword }
+    );
+    this.serverProc = proc;
+    proc.on("exit", () => {
+      if (this.serverProc === proc) this.serverProc = null;
+      this.serverBaseUrl = null;
+      this.serverReady = null;
+    });
+    const deadline = Date.now() + 2e4;
+    while (Date.now() < deadline) {
+      try {
+        const r = await this.serverRequest(baseUrl, "GET", "/global/health");
+        if (r.status === 200) {
+          this.serverBaseUrl = baseUrl;
+          return baseUrl;
+        }
+      } catch (e) {
+      }
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    throw new Error("Impossibile avviare opencode serve (timeout)");
+  }
+  pickFreePort() {
+    return new Promise((resolve, reject) => {
+      const srv = (0, import_net.createServer)();
+      srv.once("error", reject);
+      srv.listen(0, "127.0.0.1", () => {
+        const port = srv.address().port;
+        srv.close(() => resolve(port));
+      });
+    });
+  }
+  authHeader() {
+    return "Basic " + btoa(`opencode:${this.serverPassword}`);
+  }
+  async serverRequest(baseUrl, method, path, body) {
+    const headers = { Authorization: this.authHeader() };
+    let data;
+    if (body !== void 0) {
+      data = JSON.stringify(body);
+      headers["Content-Type"] = "application/json";
+    }
+    const res = await fetch(`${baseUrl}${path}`, { method, headers, body: data });
+    return { status: res.status, text: await res.text() };
+  }
+  async ensureSession(baseUrl, cb) {
+    const existing = this.plugin.settings.sessionId;
+    if (existing) return existing;
+    const r = await this.serverRequest(baseUrl, "POST", "/session", {});
+    let sid = "";
+    try {
+      sid = String(JSON.parse(r.text).id);
+    } catch (e) {
+    }
+    if (!sid) throw new Error(`Creazione sessione fallita: ${r.status}`);
+    cb.onSession(sid);
+    return sid;
+  }
+  async postMessage(baseUrl, sid, prompt) {
+    const s = this.plugin.settings;
+    const model = s.model || DEFAULT_SETTINGS.model;
+    const slash = model.indexOf("/");
+    const providerID = slash >= 0 ? model.slice(0, slash) : "";
+    const modelID = slash >= 0 ? model.slice(slash + 1) : model;
+    const body = {
+      parts: [{ type: "text", text: prompt }],
+      model: { providerID, modelID }
+    };
+    if (s.agent) body.agent = s.agent;
+    const r = await this.serverRequest(baseUrl, "POST", `/session/${sid}/message`, body);
+    if (r.status !== 200) {
+      throw new Error(`Invio messaggio fallito: ${r.status} ${r.text.slice(0, 200)}`);
+    }
+  }
+  openEventStream(baseUrl, onEvent) {
+    const xhr = new XMLHttpRequest();
+    xhr.open("GET", `${baseUrl}/event`, true);
+    xhr.setRequestHeader("Authorization", this.authHeader());
+    let buffer = "";
+    let lastLen = 0;
+    xhr.onprogress = () => {
+      const text = xhr.responseText;
+      const chunk = text.slice(lastLen);
+      lastLen = text.length;
+      buffer += chunk;
+      let idx;
+      while ((idx = buffer.indexOf("\n")) >= 0) {
+        const line = buffer.slice(0, idx).trim();
+        buffer = buffer.slice(idx + 1);
+        if (line.startsWith("data:")) {
+          try {
+            onEvent(JSON.parse(line.slice(5).trim()));
+          } catch (e) {
+          }
+        }
+      }
+    };
+    xhr.send();
+    return xhr;
+  }
+  handleServerEvent(ev, sid, cb, ctx) {
+    var _a, _b, _c, _d, _e, _f, _g;
+    const e = ev;
+    const props = (_a = e.properties) != null ? _a : {};
+    const evSid = props.sessionID;
+    if (typeof evSid === "string" && evSid !== sid) return;
+    switch (e.type) {
+      case "session.error":
+        cb.onError(this.errorMessage(props.error));
+        break;
+      case "message.updated": {
+        const info = props.info;
+        if ((info == null ? void 0 : info.role) === "assistant") {
+          if (!ctx.assistantId && info.id) ctx.assistantId = info.id;
+          if (info.tokens || info.cost !== void 0) {
+            cb.onFinish({ tokens: info.tokens, cost: info.cost });
+          }
+        }
+        break;
+      }
+      case "message.part.updated": {
+        const part = props.part;
+        if (!part) break;
+        if (!ctx.assistantId || part.messageID !== ctx.assistantId) break;
+        if (part.type === "text" && typeof part.text === "string") {
+          cb.onText(part.text, String(part.id));
+        } else if (part.type === "reasoning" && typeof part.text === "string") {
+          cb.onReasoning(part.text, String(part.id));
+        } else if (part.type === "tool") {
+          const status = (_c = (_b = part.state) == null ? void 0 : _b.status) != null ? _c : "completed";
+          const title = ((_d = part.state) == null ? void 0 : _d.title) || part.tool || "Strumento";
+          cb.onStep({
+            id: String((_e = part.id) != null ? _e : "step-" + Date.now()),
+            tool: String(part.tool),
+            title: String(title),
+            state: String(status),
+            input: (_f = part.state) == null ? void 0 : _f.input,
+            output: (_g = part.state) == null ? void 0 : _g.output
+          });
+        }
+        break;
+      }
+      default:
+        break;
+    }
   }
   killProc(child) {
     if (!child || child.pid === void 0) return;
@@ -1655,7 +1888,7 @@ var OpencodeRunner = class {
   buildCommand(s, args) {
     return [s.binaryPath, args];
   }
-  spawnBinary(bin, args, cwd) {
+  spawnBinary(bin, args, cwd, extraEnv) {
     const isWin = process.platform === "win32";
     const resolved = isWin ? this.resolveBinary(bin) : null;
     const shell = isWin && !resolved && !(bin.includes("\\") || bin.includes("/"));
@@ -1663,7 +1896,7 @@ var OpencodeRunner = class {
       cwd,
       shell,
       windowsHide: true,
-      env: process.env,
+      env: extraEnv ? { ...process.env, ...extraEnv } : process.env,
       // IMPORTANTE: stdin deve essere "ignore", non "pipe". Con stdin a pipe
       // `opencode run` resta in hang senza produrre output su Windows.
       stdio: ["ignore", "pipe", "pipe"]
@@ -1832,6 +2065,7 @@ var OpencodePlugin = class extends import_obsidian5.Plugin {
     return leaf.view;
   }
   onunload() {
+    this.runner.stopServer();
     if (this.savePending) {
       void this.saveData({ ...this.settings, histories: this.histories });
     }

@@ -1,9 +1,8 @@
 ﻿import { App, FileSystemAdapter, ItemView, MarkdownRenderer, Notice, WorkspaceLeaf, setIcon } from "obsidian";
-import type { ChildProcess } from "child_process";
 import type OpencodePlugin from "./main";
 import type { HistoryAssistant } from "./main";
 import { DEFAULT_SETTINGS } from "./settings";
-import type { FinishInfo, StepInfo } from "./opencodeRunner";
+import type { FinishInfo, RunHandle, StepInfo } from "./opencodeRunner";
 import { ConfirmModal, FileSuggestModal, RenameModal, StatsModal } from "./modals";
 
 export const CHAT_VIEW_TYPE = "opencode-chat-view";
@@ -46,7 +45,7 @@ export class ChatView extends ItemView {
   private attachments: { path: string; label: string; image?: boolean }[] = [];
   private viewSession: string;
   private pendingUser: { text: string; contextLabel?: string } | null = null;
-  private currentProc: ChildProcess | null = null;
+  private currentProc: RunHandle | null = null;
   private running = false;
   private context: TurnContext | null = null;
   private renderTimer: number | null = null;
@@ -93,8 +92,8 @@ export class ChatView extends ItemView {
     });
   }
 
-  onClose(): Promise<void> {
-    if (this.currentProc) this.plugin.runner.killProc(this.currentProc);
+onClose(): Promise<void> {
+    this.currentProc?.abort();
     this.currentProc = null;
     return super.onClose();
   }
@@ -412,9 +411,9 @@ export class ChatView extends ItemView {
     this.stopBtn = buttons.createEl("button", { cls: "opencode-stop-btn" });
     this.stopBtn.setText("Stop");
     this.stopBtn.addClass("hidden");
-    this.stopBtn.addEventListener("click", () => {
+this.stopBtn.addEventListener("click", () => {
       this.stoppedByUser = true;
-      if (this.currentProc) this.plugin.runner.killProc(this.currentProc);
+      this.currentProc?.abort();
     });
   }
 

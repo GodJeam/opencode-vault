@@ -149,6 +149,7 @@ export default class OpencodePlugin extends Plugin {
 
   onunload(): void {
     // i processi in corso vengono terminati da ogni singola vista (onClose)
+    this.runner.stopServer();
     if (this.savePending) {
       void this.saveData({ ...this.settings, histories: this.histories });
     }
