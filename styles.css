@@ -7,6 +7,26 @@
   min-height: 0;
   overflow: hidden;
   background: var(--background-primary);
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* I controlli restano non selezionabili, il testo dei messaggi sì */
+.opencode-chat button,
+.opencode-chat select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.opencode-bubble,
+.opencode-steps,
+.opencode-reasoning-content,
+.opencode-step-io,
+.opencode-status,
+.opencode-context-hint {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
 }
 
 /* ====== Barra contesto / strumenti ====== */
