@@ -662,7 +662,7 @@ var ChatView = class extends import_obsidian3.ItemView {
       onSession: () => {
       },
       onRaw: (chunk) => {
-        this.lastStderr = (this.lastStderr + chunk).slice(-4e3);
+        this.lastStderr += chunk;
       },
       onText: (text) => {
         bubble.setText(text);
@@ -1067,7 +1067,7 @@ ${this.context.content}
         }
       },
       onRaw: (chunk) => {
-        this.lastStderr = (this.lastStderr + chunk).slice(-4e3);
+        this.lastStderr += chunk;
       },
       onText: (text) => {
         if (/does not support image input|image input is not supported/i.test(text)) {
@@ -1385,10 +1385,6 @@ var OpencodeRunner = class {
   constructor(plugin) {
     this.resolvedBinary = null;
     this.resolvedBinaryTried = false;
-    this.modelsCache = null;
-    this.modelsCacheAt = 0;
-    this.sessionsCache = null;
-    this.sessionsCacheAt = 0;
     this.plugin = plugin;
   }
   getVersion() {
@@ -1408,10 +1404,7 @@ var OpencodeRunner = class {
       });
     });
   }
-  listModels(force = false) {
-    if (!force && this.modelsCache && Date.now() - this.modelsCacheAt < 1e4) {
-      return Promise.resolve(this.modelsCache);
-    }
+  listModels() {
     const s = this.plugin.settings;
     return new Promise((resolve, reject) => {
       var _a, _b;
@@ -1425,8 +1418,6 @@ var OpencodeRunner = class {
       child.on("close", (code) => {
         if (code === 0) {
           const models = out.split("\n").map((l) => l.trim()).filter((l) => /^[a-zA-Z0-9_.:/+-]+$/.test(l)).sort();
-          this.modelsCache = models;
-          this.modelsCacheAt = Date.now();
           resolve(models);
         } else {
           reject(new Error(err.trim() || out.trim() || `exit code ${code}`));
@@ -1434,10 +1425,7 @@ var OpencodeRunner = class {
       });
     });
   }
-  listSessions(force = false) {
-    if (!force && this.sessionsCache && Date.now() - this.sessionsCacheAt < 2e3) {
-      return Promise.resolve(this.sessionsCache);
-    }
+  listSessions() {
     const s = this.plugin.settings;
     return new Promise((resolve, reject) => {
       var _a, _b;
@@ -1452,10 +1440,7 @@ var OpencodeRunner = class {
         if (code === 0) {
           try {
             const arr = JSON.parse(out);
-            const sessions = Array.isArray(arr) ? arr : [];
-            this.sessionsCache = sessions;
-            this.sessionsCacheAt = Date.now();
-            resolve(sessions);
+            resolve(Array.isArray(arr) ? arr : []);
           } catch (e) {
             resolve([]);
           }
@@ -1569,7 +1554,12 @@ var OpencodeRunner = class {
       while ((idx = buffer.indexOf("\n")) >= 0) {
         const line = buffer.slice(0, idx).trim();
         buffer = buffer.slice(idx + 1);
-        if (line) this.handleLine(line, cb);
+        if (!line) continue;
+        try {
+          this.handleLine(line, cb);
+        } catch (e) {
+          console.error("opencode-vault: errore gestendo un evento:", e);
+        }
       }
     });
     (_b = child.stdout) == null ? void 0 : _b.on("end", () => {
@@ -1727,8 +1717,6 @@ var OpencodePlugin = class extends import_obsidian5.Plugin {
   constructor() {
     super(...arguments);
     this.histories = {};
-    this.saveTimer = null;
-    this.savePending = false;
   }
   async onload() {
     var _a;
@@ -1839,9 +1827,6 @@ var OpencodePlugin = class extends import_obsidian5.Plugin {
     return leaf.view;
   }
   onunload() {
-    if (this.savePending) {
-      void this.saveData({ ...this.settings, histories: this.histories });
-    }
   }
   getHistory(sessionId) {
     var _a;
@@ -1857,36 +1842,13 @@ var OpencodePlugin = class extends import_obsidian5.Plugin {
     const arr = this.histories[sessionId];
     arr.push(msg);
     if (arr.length > 100) arr.splice(0, arr.length - 100);
-    this.scheduleHistorySave();
+    await this.saveData({ ...this.settings, histories: this.histories });
   }
   async deleteHistory(sessionId) {
     delete this.histories[sessionId];
-    this.scheduleHistorySave();
+    await this.saveData({ ...this.settings, histories: this.histories });
   }
   async saveSettings() {
-    await this.flushHistorySave();
-  }
-  // La cronologia viene scritta su disco con un piccolo debounce: evita di
-  // riscrivere l'intero data.json a ogni singolo messaggio.
-  scheduleHistorySave() {
-    this.savePending = true;
-    if (this.saveTimer !== null) return;
-    this.saveTimer = window.setTimeout(() => {
-      this.saveTimer = null;
-      if (this.savePending) {
-        this.savePending = false;
-        void this.saveData({ ...this.settings, histories: this.histories });
-      }
-    }, 800);
-  }
-  async flushHistorySave() {
-    if (this.saveTimer !== null) {
-      clearTimeout(this.saveTimer);
-      this.saveTimer = null;
-    }
-    if (this.savePending) {
-      this.savePending = false;
-      await this.saveData({ ...this.settings, histories: this.histories });
-    }
+    await this.saveData({ ...this.settings, histories: this.histories });
   }
 };

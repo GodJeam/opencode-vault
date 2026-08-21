@@ -64,10 +64,6 @@ export class OpencodeRunner {
   private plugin: OpencodePlugin;
   private resolvedBinary: string | null = null;
   private resolvedBinaryTried = false;
-  private modelsCache: string[] | null = null;
-  private modelsCacheAt = 0;
-  private sessionsCache: SessionInfo[] | null = null;
-  private sessionsCacheAt = 0;
 
   constructor(plugin: OpencodePlugin) {
     this.plugin = plugin;
@@ -90,10 +86,7 @@ export class OpencodeRunner {
     });
   }
 
-  listModels(force = false): Promise<string[]> {
-    if (!force && this.modelsCache && Date.now() - this.modelsCacheAt < 10_000) {
-      return Promise.resolve(this.modelsCache);
-    }
+  listModels(): Promise<string[]> {
     const s = this.plugin.settings;
     return new Promise((resolve, reject) => {
       const [bin, args] = this.buildCommand(s, ["models"]);
@@ -110,8 +103,6 @@ export class OpencodeRunner {
             .map((l) => l.trim())
             .filter((l) => /^[a-zA-Z0-9_.:/+-]+$/.test(l))
             .sort();
-          this.modelsCache = models;
-          this.modelsCacheAt = Date.now();
           resolve(models);
         } else {
           reject(new Error(err.trim() || out.trim() || `exit code ${code}`));
@@ -120,10 +111,7 @@ export class OpencodeRunner {
     });
   }
 
-  listSessions(force = false): Promise<SessionInfo[]> {
-    if (!force && this.sessionsCache && Date.now() - this.sessionsCacheAt < 2_000) {
-      return Promise.resolve(this.sessionsCache);
-    }
+  listSessions(): Promise<SessionInfo[]> {
     const s = this.plugin.settings;
     return new Promise((resolve, reject) => {
       const [bin, args] = this.buildCommand(s, ["session", "list", "--format", "json"]);
@@ -137,10 +125,7 @@ export class OpencodeRunner {
         if (code === 0) {
           try {
             const arr = JSON.parse(out);
-            const sessions = Array.isArray(arr) ? (arr as SessionInfo[]) : [];
-            this.sessionsCache = sessions;
-            this.sessionsCacheAt = Date.now();
-            resolve(sessions);
+            resolve(Array.isArray(arr) ? (arr as SessionInfo[]) : []);
           } catch {
             resolve([]);
           }
@@ -262,7 +247,15 @@ export class OpencodeRunner {
       while ((idx = buffer.indexOf("\n")) >= 0) {
         const line = buffer.slice(0, idx).trim();
         buffer = buffer.slice(idx + 1);
-        if (line) this.handleLine(line, cb);
+        if (!line) continue;
+        // Se una riga genera un errore, non deve bloccare il buffer: la
+        // processiamo isolandola, così gli eventi successivi continuano a
+        // arrivare (altrimenti la chat si "congela" ma Obsidian resta attivo).
+        try {
+          this.handleLine(line, cb);
+        } catch (e) {
+          console.error("opencode-vault: errore gestendo un evento:", e);
+        }
       }
     });
     child.stdout?.on("end", () => {

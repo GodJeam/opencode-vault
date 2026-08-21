@@ -484,7 +484,7 @@ this.stopBtn.addEventListener("click", () => {
     const proc = this.plugin.runner.runStream(summaryPrompt, [], {
       onSession: () => {},
       onRaw: (chunk) => {
-        this.lastStderr = (this.lastStderr + chunk).slice(-4000);
+        this.lastStderr += chunk;
       },
       onText: (text) => {
         bubble.setText(text);
@@ -903,7 +903,7 @@ this.stopBtn.addEventListener("click", () => {
         }
       },
       onRaw: (chunk) => {
-        this.lastStderr = (this.lastStderr + chunk).slice(-4000);
+        this.lastStderr += chunk;
       },
       onText: (text) => {
         if (/does not support image input|image input is not supported/i.test(text)) {
@@ -1248,4 +1248,5 @@ finalize(): void {
     }
   }
 }
+
 

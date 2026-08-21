@@ -149,9 +149,6 @@ export default class OpencodePlugin extends Plugin {
 
   onunload(): void {
     // i processi in corso vengono terminati da ogni singola vista (onClose)
-    if (this.savePending) {
-      void this.saveData({ ...this.settings, histories: this.histories });
-    }
   }
 
   getHistory(sessionId: string): HistoryMessage[] {
@@ -170,43 +167,15 @@ export default class OpencodePlugin extends Plugin {
     const arr = this.histories[sessionId];
     arr.push(msg);
     if (arr.length > 100) arr.splice(0, arr.length - 100);
-    this.scheduleHistorySave();
+    await this.saveData({ ...this.settings, histories: this.histories });
   }
 
   async deleteHistory(sessionId: string): Promise<void> {
     delete this.histories[sessionId];
-    this.scheduleHistorySave();
+    await this.saveData({ ...this.settings, histories: this.histories });
   }
 
   async saveSettings(): Promise<void> {
-    await this.flushHistorySave();
-  }
-
-  private saveTimer: number | null = null;
-  private savePending = false;
-
-  // La cronologia viene scritta su disco con un piccolo debounce: evita di
-  // riscrivere l'intero data.json a ogni singolo messaggio.
-  private scheduleHistorySave(): void {
-    this.savePending = true;
-    if (this.saveTimer !== null) return;
-    this.saveTimer = window.setTimeout(() => {
-      this.saveTimer = null;
-      if (this.savePending) {
-        this.savePending = false;
-        void this.saveData({ ...this.settings, histories: this.histories });
-      }
-    }, 800);
-  }
-
-  private async flushHistorySave(): Promise<void> {
-    if (this.saveTimer !== null) {
-      clearTimeout(this.saveTimer);
-      this.saveTimer = null;
-    }
-    if (this.savePending) {
-      this.savePending = false;
-      await this.saveData({ ...this.settings, histories: this.histories });
-    }
+    await this.saveData({ ...this.settings, histories: this.histories });
   }
 }
