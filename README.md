@@ -15,7 +15,6 @@ An **Obsidian** plugin that integrates **opencode** directly into your vault: ch
 - **Reasoning and executed steps**: shows the model's reasoning and the tools used (with expandable input/output).
 - **Token and cost stats**: per-message and totals (5 hours, week, month).
 - **Continue past the context limit**: when a session reaches its token limit, a command summarizes/continues in a new session (with fallback on local history).
-- **TikZ rendering**: preview and rendering of ```tikz blocks (and tikzcd/pgfplots) in notes and chat, using a local TeX (MiKTeX) with support for all libraries.
 
 ## Requirements
 
@@ -28,16 +27,6 @@ The plugin is cross-platform: the chat, sessions, `/ @ !` commands, stats, and h
 
 On **all** platforms:
 - **Node.js** (to build the plugin) and the **opencode CLI** on your `PATH`.
-
-For **TikZ rendering** (an additional feature), a local **TeX** installation is required:
-
-| Platform | Recommended TeX | Notes |
-|---|---|---|
-| Windows | MiKTeX | set the `latex`/`dvisvgm` binary paths in the plugin settings if they are not on `PATH` |
-| macOS | MacTeX / TeX Live | binaries usually in `/Library/TeX/texbin` |
-| Linux | TeX Live (`texlive-full`) | binaries usually in `/usr/bin` |
-
-TikZ rendering uses `latex` + `dvisvgm`: make sure both are installed and reachable, or configure their paths in the plugin settings.
 
 ### Build requirements
 
@@ -81,7 +70,6 @@ npm run build
 - `src/opencodeRunner.ts` — CLI execution and event parsing
 - `src/settings.ts` — settings
 - `src/modals.ts` — modal dialogs (rename, stats, confirm, attachments)
-- `src/tikzRenderer.ts` / `src/tikzPreview.ts` — TikZ rendering and preview
 
 ## License
 
