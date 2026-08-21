@@ -44,7 +44,6 @@ export class ChatView extends ItemView {
   private attachmentsBar!: HTMLElement;
   private suggestEl!: HTMLElement;
   private attachments: { path: string; label: string; image?: boolean }[] = [];
-  private currentSessionId = "";
   private viewSession: string;
   private pendingUser: { text: string; contextLabel?: string } | null = null;
   private currentProc: ChildProcess | null = null;
@@ -1034,7 +1033,6 @@ export class ChatView extends ItemView {
   }
 
   private loadHistoryForSession(sessionId: string): void {
-    this.currentSessionId = sessionId;
     this.messagesEl.empty();
     this.resetStats();
     const history = this.plugin.getHistory(sessionId);
@@ -1229,7 +1227,7 @@ class AssistantBubble {
   finalize(): void {
     this.flushRender();
     this.status.setText("");
-    for (const [id, rec] of this.steps) {
+    for (const rec of this.steps.values()) {
       if (rec.status === "running") {
         rec.status = "done";
         rec.row.removeClass("opencode-step--running");

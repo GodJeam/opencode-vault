@@ -40,7 +40,7 @@ npm run build
 1. Clone the repo and build:
 
 ```bash
-git clone https://github.com/<your-username>/opencode-vault.git
+git clone https://github.com/GodJeam/opencode-vault.git
 cd opencode-vault
 npm install
 npm run build

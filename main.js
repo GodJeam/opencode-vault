@@ -273,7 +273,6 @@ var ChatView = class extends import_obsidian3.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.attachments = [];
-    this.currentSessionId = "";
     this.pendingUser = null;
     this.currentProc = null;
     this.running = false;
@@ -1190,7 +1189,6 @@ ${this.context.content}
     }
   }
   loadHistoryForSession(sessionId) {
-    this.currentSessionId = sessionId;
     this.messagesEl.empty();
     this.resetStats();
     const history = this.plugin.getHistory(sessionId);
@@ -1359,7 +1357,7 @@ var AssistantBubble = class {
   finalize() {
     this.flushRender();
     this.status.setText("");
-    for (const [id, rec] of this.steps) {
+    for (const rec of this.steps.values()) {
       if (rec.status === "running") {
         rec.status = "done";
         rec.row.removeClass("opencode-step--running");
