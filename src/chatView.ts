@@ -1127,9 +1127,11 @@ setText(text: string): void {
     this.view.scheduleScroll();
   }
 
-  addStep(step: StepInfo): void {
+addStep(step: StepInfo): void {
     const showIO = this.view.plugin.settings.showToolIO;
     const existing = this.steps.get(step.id);
+    // Evita che il DOM cresca senza limiti sulle task lunghe con migliaia di passi.
+    if (!existing && this.steps.size >= 150) return;
 
     if (step.state === "running") {
       if (existing) return;
@@ -1227,8 +1229,12 @@ private serializeStep(step: StepInfo): string {
 
 finalize(): void {
     this.contentEl.empty();
-    if (this.rawText.trim()) {
+    // Markdown una sola volta, ma solo se il testo non è enorme (il render di
+    // centinaia di KB bloccherebbe la UI). Oltre la soglia resta il testo grezzo.
+    if (this.rawText.trim() && this.rawText.length <= 30000) {
       MarkdownRenderer.render(this.app, this.rawText, this.contentEl, "", this.view);
+    } else if (this.rawText.trim()) {
+      this.contentEl.textContent = this.rawText;
     }
     this.status.setText("");
     for (const rec of this.steps.values()) {

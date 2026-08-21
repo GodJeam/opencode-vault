@@ -292,6 +292,13 @@ export class OpencodeRunner {
   }
 
   private handleLine(line: string, cb: StreamCallbacks): void {
+    // Gli output di alcuni strumenti possono produrre eventi di diversi MB:
+    // JSON.parse di righe giganti blocca la UI. Le saltiamo (il testo di
+    // risposta usa eventi piccoli e continua a streammare normalmente).
+    if (line.length > 1_500_000) {
+      cb.onRaw?.(`[omesso evento di ${line.length} byte]\n`);
+      return;
+    }
     let ev: any;
     try {
       ev = JSON.parse(line);

@@ -1267,6 +1267,7 @@ var AssistantBubble = class {
   addStep(step) {
     const showIO = this.view.plugin.settings.showToolIO;
     const existing = this.steps.get(step.id);
+    if (!existing && this.steps.size >= 150) return;
     if (step.state === "running") {
       if (existing) return;
       const row = this.stepsEl.createDiv({ cls: "opencode-step opencode-step--running" });
@@ -1357,8 +1358,10 @@ var AssistantBubble = class {
   }
   finalize() {
     this.contentEl.empty();
-    if (this.rawText.trim()) {
+    if (this.rawText.trim() && this.rawText.length <= 3e4) {
       import_obsidian3.MarkdownRenderer.render(this.app, this.rawText, this.contentEl, "", this.view);
+    } else if (this.rawText.trim()) {
+      this.contentEl.textContent = this.rawText;
     }
     this.status.setText("");
     for (const rec of this.steps.values()) {
@@ -1593,12 +1596,17 @@ var OpencodeRunner = class {
     }
   }
   handleLine(line, cb) {
-    var _a, _b, _c, _d, _e;
+    var _a, _b, _c, _d, _e, _f;
+    if (line.length > 15e5) {
+      (_a = cb.onRaw) == null ? void 0 : _a.call(cb, `[omesso evento di ${line.length} byte]
+`);
+      return;
+    }
     let ev;
     try {
       ev = JSON.parse(line);
     } catch (e) {
-      (_a = cb.onRaw) == null ? void 0 : _a.call(cb, line + "\n");
+      (_b = cb.onRaw) == null ? void 0 : _b.call(cb, line + "\n");
       return;
     }
     const sid = typeof ev.sessionID === "string" ? ev.sessionID : void 0;
@@ -1618,14 +1626,14 @@ var OpencodeRunner = class {
         break;
       case "tool_use":
         if ((part == null ? void 0 : part.type) === "tool") {
-          const state = ((_b = part.state) == null ? void 0 : _b.status) || "completed";
+          const state = ((_c = part.state) == null ? void 0 : _c.status) || "completed";
           cb.onStep({
             id: String(part.callID || part.id || "step-" + Date.now()),
             tool: String(part.tool),
-            title: String(((_c = part.state) == null ? void 0 : _c.title) || part.tool || "Strumento"),
+            title: String(((_d = part.state) == null ? void 0 : _d.title) || part.tool || "Strumento"),
             state: String(state),
-            input: (_d = part.state) == null ? void 0 : _d.input,
-            output: (_e = part.state) == null ? void 0 : _e.output
+            input: (_e = part.state) == null ? void 0 : _e.input,
+            output: (_f = part.state) == null ? void 0 : _f.output
           });
         }
         break;
@@ -1840,7 +1848,11 @@ var OpencodePlugin = class extends import_obsidian5.Plugin {
     return (_a = this.histories[sessionId]) != null ? _a : [];
   }
   async appendHistory(sessionId, msg) {
+    var _a;
     if (!sessionId) return;
+    const cap = (t) => t && t.length > 5e4 ? t.slice(0, 5e4) + "\u2026" : t;
+    msg.text = (_a = cap(msg.text)) != null ? _a : "";
+    if (msg.role === "assistant") msg.reasoning = cap(msg.reasoning);
     if (!this.histories[sessionId]) this.histories[sessionId] = [];
     const arr = this.histories[sessionId];
     arr.push(msg);

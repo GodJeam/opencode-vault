@@ -160,6 +160,12 @@ export default class OpencodePlugin extends Plugin {
 
   async appendHistory(sessionId: string, msg: HistoryMessage): Promise<void> {
     if (!sessionId) return;
+    // Limita la dimensione dei messaggi salvati per non appesantire il data.json
+    // e il salvataggio (le risposte di task lunghe possono essere molto grandi).
+    const cap = (t: string | undefined): string | undefined =>
+      t && t.length > 50000 ? t.slice(0, 50000) + "…" : t;
+    msg.text = cap(msg.text) ?? "";
+    if (msg.role === "assistant") msg.reasoning = cap(msg.reasoning);
     if (!this.histories[sessionId]) this.histories[sessionId] = [];
     const arr = this.histories[sessionId];
     arr.push(msg);
