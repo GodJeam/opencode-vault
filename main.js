@@ -1048,6 +1048,16 @@ ${this.context.content}
     this.stoppedByUser = false;
     this.lastStderr = "";
     this.setRunningUI(true);
+    let eventCount = 0;
+    let lastStatusUpdate = 0;
+    const touch = () => {
+      eventCount++;
+      const now = Date.now();
+      if (now - lastStatusUpdate > 400) {
+        lastStatusUpdate = now;
+        bubble.status.setText(`\u2026 ${eventCount} eventi`);
+      }
+    };
     const proc = this.plugin.runner.runStream(prompt, filePaths, {
       onSession: (sid) => {
         if (sid && sid !== this.viewSession) {
@@ -1075,18 +1085,20 @@ ${this.context.content}
           return;
         }
         bubble.setText(text);
-        if (bubble.status.getText() !== "") bubble.status.setText("");
+        touch();
       },
       onReasoning: (text) => {
         bubble.setReasoning(text);
+        touch();
       },
       onStep: (step) => {
         bubble.addStep(step);
-        bubble.status.setText("");
+        touch();
       },
       onFinish: (info) => {
         this.addStats(info);
         bubble.setFinish(info);
+        touch();
       },
       onError: (msg) => {
         this.hadStreamError = true;

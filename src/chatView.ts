@@ -876,7 +876,7 @@ private addWelcome(): void {
   }
 
   private doRun(prompt: string, filePaths: string[] = []): void {
-    const bubble = this.addAssistantMessage();
+const bubble = this.addAssistantMessage();
     bubble.status.setText("In avvio...");
 
     this.running = true;
@@ -885,7 +885,20 @@ private addWelcome(): void {
     this.lastStderr = "";
     this.setRunningUI(true);
 
-    const proc = this.plugin.runner.runStream(prompt, filePaths, {
+    // Indicatore di attività: mostra quanti eventi stanno arrivando, così si
+    // capisce se lo stream è vivo o bloccato durante le task lunghe.
+    let eventCount = 0;
+    let lastStatusUpdate = 0;
+    const touch = () => {
+      eventCount++;
+      const now = Date.now();
+      if (now - lastStatusUpdate > 400) {
+        lastStatusUpdate = now;
+        bubble.status.setText(`… ${eventCount} eventi`);
+      }
+    };
+
+const proc = this.plugin.runner.runStream(prompt, filePaths, {
       onSession: (sid) => {
         if (sid && sid !== this.viewSession) {
           this.viewSession = sid;
@@ -912,18 +925,20 @@ private addWelcome(): void {
           return;
         }
         bubble.setText(text);
-        if (bubble.status.getText() !== "") bubble.status.setText("");
+        touch();
       },
       onReasoning: (text) => {
         bubble.setReasoning(text);
+        touch();
       },
       onStep: (step) => {
         bubble.addStep(step);
-        bubble.status.setText("");
+        touch();
       },
       onFinish: (info) => {
         this.addStats(info);
         bubble.setFinish(info);
+        touch();
       },
       onError: (msg) => {
         this.hadStreamError = true;
