@@ -22,6 +22,30 @@ Plugin per **Obsidian** che integra **opencode** direttamente nel tuo vault: cha
 - Obsidian (desktop, Windows/macOS/Linux)
 - CLI di opencode installato e raggiungibile (es. `npm install -g opencode-ai`), con provider autenticati (`opencode auth login`)
 
+### Requisiti per piattaforma
+
+Il plugin è cross-platform: la chat, le sessioni, i comandi `/ @ !`, le statistiche e la gestione della cronologia funzionano su **Windows, macOS e Linux**.
+
+Per **tutte** le piattaforme:
+- **Node.js** (per compilare il plugin) e il **CLI di opencode** nel `PATH`.
+
+Per il **rendering TikZ** (funzionalità aggiuntiva), serve un **TeX** locale:
+
+| Piattaforma | TeX consigliato | Note |
+|---|---|---|
+| Windows | MiKTeX | percorso dei binari `latex`/`dvisvgm` da impostare nelle impostazioni del plugin se non sono nel PATH |
+| macOS | MacTeX / TeX Live | binari di solito in `/Library/TeX/texbin` |
+| Linux | TeX Live (`texlive-full`) | binari di solito in `/usr/bin` |
+
+Il rendering TikZ usa `latex` + `dvisvgm`: assicurati che entrambi siano installati e raggiungibili, oppure configurane il percorso nelle impostazioni del plugin.
+
+### Requisiti per il build
+
+```bash
+npm install
+npm run build
+```
+
 ## Installazione
 
 1. Clona la repo e compila:

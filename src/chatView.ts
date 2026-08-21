@@ -868,7 +868,9 @@ export class ChatView extends ItemView {
   private toAbsolutePath(vaultPath: string): string {
     const adapter = this.app.vault.adapter;
     if (adapter instanceof FileSystemAdapter) {
-      return `${adapter.getBasePath()}\\${vaultPath.split("/").join("\\")}`;
+      // Uso i separatori nativi della piattaforma per compatibilità Windows/macOS/Linux
+      const sep = process.platform === "win32" ? "\\" : "/";
+      return `${adapter.getBasePath()}${sep}${vaultPath.split("/").join(sep)}`;
     }
     return vaultPath;
   }

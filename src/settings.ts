@@ -54,7 +54,7 @@ export class OpencodeSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Percorso binario opencode")
       .setDesc(
-        "Comando o percorso completo dell'eseguibile. Su Windows con npm globale di solito basta 'opencode' (viene usato lo shim .cmd). In caso di problemi usa il percorso completo, es. C:/Users/giuli/AppData/Roaming/npm/opencode.cmd"
+        "Comando o percorso completo dell'eseguibile. Di solito basta 'opencode' se è nel PATH. In caso di problemi usa il percorso completo (es. su Windows .../npm/opencode.cmd, su macOS/Linux .../bin/opencode)."
       )
       .addText((text) =>
         text
