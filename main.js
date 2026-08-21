@@ -50,7 +50,7 @@ var OpencodeSettingTab = class extends import_obsidian.PluginSettingTab {
     containerEl.empty();
     containerEl.createEl("h2", { text: "Opencode Vault" });
     new import_obsidian.Setting(containerEl).setName("Percorso binario opencode").setDesc(
-      "Comando o percorso completo dell'eseguibile. Di solito basta 'opencode' se \xC3\xA8 nel PATH. In caso di problemi usa il percorso completo (es. su Windows .../npm/opencode.cmd, su macOS/Linux .../bin/opencode)."
+      "Comando o percorso completo dell'eseguibile. Di solito basta 'opencode' se \xE8 nel PATH. In caso di problemi usa il percorso completo (es. su Windows .../npm/opencode.cmd, su macOS/Linux .../bin/opencode)."
     ).addText(
       (text) => text.setPlaceholder("opencode").setValue(this.plugin.settings.binaryPath).onChange(async (value) => {
         this.plugin.settings.binaryPath = value.trim() || "opencode";
@@ -58,7 +58,7 @@ var OpencodeSettingTab = class extends import_obsidian.PluginSettingTab {
       })
     );
     const modelSetting = new import_obsidian.Setting(containerEl).setName("Modello").setDesc(
-      "Seleziona un modello dalla lista di opencode. Lo stesso selettore \xC3\xA8 disponibile anche nella barra della chat. Il default usa il provider OpenCode Go (lo stesso dell'app desktop)."
+      "Seleziona un modello dalla lista di opencode. Lo stesso selettore \xE8 disponibile anche nella barra della chat. Il default usa il provider OpenCode Go (lo stesso dell'app desktop)."
     );
     modelSetting.addDropdown((dd) => {
       this.populateModelDropdown(dd);
@@ -86,11 +86,11 @@ var OpencodeSettingTab = class extends import_obsidian.PluginSettingTab {
       (btn) => btn.setButtonText("Azzera").onClick(async () => {
         this.plugin.settings.sessionId = "";
         await this.plugin.saveSettings();
-        new import_obsidian.Notice("Sessione azzerata: il prossimo messaggio partir\xC3\xA0 da una nuova sessione.");
+        new import_obsidian.Notice("Sessione azzerata: il prossimo messaggio partir\xE0 da una nuova sessione.");
       })
     );
     new import_obsidian.Setting(containerEl).setName("Auto-approve permessi").setDesc(
-      "Concede automaticamente i permessi degli strumenti (bash, edit file, ecc.). In modalit\xC3\xA0 non interattiva opencode negherebbe tutto senza questo flag. Disattivalo per maggiore sicurezza."
+      "Concede automaticamente i permessi degli strumenti (bash, edit file, ecc.). In modalit\xE0 non interattiva opencode negherebbe tutto senza questo flag. Disattivalo per maggiore sicurezza."
     ).addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.autoApprove).onChange(async (value) => {
         this.plugin.settings.autoApprove = value;
@@ -171,7 +171,7 @@ var RenameModal = class extends import_obsidian2.Modal {
         if (!input) return;
         const v = input.value.trim();
         if (!v) {
-          new import_obsidian2.Notice("Il titolo non pu\xC3\xB2 essere vuoto.");
+          new import_obsidian2.Notice("Il titolo non pu\xF2 essere vuoto.");
           return;
         }
         this.onSubmit(v);
@@ -246,8 +246,8 @@ var FileSuggestModal = class extends import_obsidian2.SuggestModal {
     this.onPick = onPick;
     this.setPlaceholder("Cerca un file del vault da allegare...");
     this.setInstructions([
-      { command: "\xE2\u2020\u2018\xE2\u2020\u201C", purpose: "navigare" },
-      { command: "\xE2\u2020\xB5", purpose: "allegare" },
+      { command: "\u2191\u2193", purpose: "navigare" },
+      { command: "\u21B5", purpose: "allegare" },
       { command: "esc", purpose: "chiudere" }
     ]);
   }
@@ -382,7 +382,7 @@ var ChatView = class extends import_obsidian3.ItemView {
     (0, import_obsidian3.setIcon)(statsBtn, "bar-chart-3");
     statsBtn.addEventListener("click", () => new StatsModal(this.app, this.plugin.runner).open());
     const attachBtn = this.contextBar.createEl("button", { cls: "opencode-add-note-btn" });
-    attachBtn.setText("\xEF\xBC\u2039 Allega file");
+    attachBtn.setText("\uFF0B Allega file");
     attachBtn.addEventListener("click", () => this.openFilePicker());
     const add = this.contextBar.createEl("button", { cls: "opencode-add-note-btn" });
     add.setText("+ Nota corrente");
@@ -470,7 +470,7 @@ var ChatView = class extends import_obsidian3.ItemView {
     new ConfirmModal(
       this.app,
       "Elimina sessione",
-      `Vuoi eliminare la sessione "${title}"? Verr\xC3\xA0 rimossa anche la cronologia salvata in Obsidian.`,
+      `Vuoi eliminare la sessione "${title}"? Verr\xE0 rimossa anche la cronologia salvata in Obsidian.`,
       "Elimina",
       () => {
         this.plugin.runner.deleteSession(id).then(async () => {
@@ -507,7 +507,7 @@ var ChatView = class extends import_obsidian3.ItemView {
     sel.empty();
     const newOpt = sel.createEl("option");
     newOpt.value = "";
-    newOpt.textContent = "\xEF\xBC\u2039 Nuova sessione";
+    newOpt.textContent = "\uFF0B Nuova sessione";
     try {
       const sessions = await this.plugin.runner.listSessions();
       sessions.sort((a, b) => {
@@ -521,8 +521,8 @@ var ChatView = class extends import_obsidian3.ItemView {
         const o = sel.createEl("option");
         o.value = s.id;
         const title = s.title || s.id;
-        const mark = pinnedSet.has(s.id) ? "\xE2\u2014\x8F " : "";
-        o.textContent = mark + (title.length > 40 ? title.slice(0, 37) + "\xE2\u20AC\xA6" : title);
+        const mark = pinnedSet.has(s.id) ? "\u25CF " : "";
+        o.textContent = mark + (title.length > 40 ? title.slice(0, 37) + "\u2B26" : title);
         o.title = title;
       }
     } catch (e) {
@@ -547,7 +547,7 @@ var ChatView = class extends import_obsidian3.ItemView {
     if (!this.statsBar) return;
     this.statsBar.empty();
     this.statsBar.createSpan({
-      text: `Token: ${this.stats.total.toLocaleString("it-IT")} (in ${this.stats.input.toLocaleString("it-IT")} \xC2\xB7 out ${this.stats.output.toLocaleString("it-IT")}) \xC2\xB7 Costo: ${this.stats.cost.toFixed(4)} $`,
+      text: `Token: ${this.stats.total.toLocaleString("it-IT")} (in ${this.stats.input.toLocaleString("it-IT")} \xB7 out ${this.stats.output.toLocaleString("it-IT")}) \xB7 Costo: ${this.stats.cost.toFixed(4)} $`,
       cls: "opencode-stats-text"
     });
   }
@@ -607,14 +607,14 @@ var ChatView = class extends import_obsidian3.ItemView {
   updateModelBtn() {
     if (!this.modelBtn) return;
     const m = this.plugin.settings.model || DEFAULT_SETTINGS.model;
-    this.modelBtn.setText(m.length > 30 ? m.slice(0, 27) + "\xE2\u20AC\xA6" : m);
+    this.modelBtn.setText(m.length > 30 ? m.slice(0, 27) + "\u2B26" : m);
   }
   openModelList() {
     const cur = this.plugin.settings.model || DEFAULT_SETTINGS.model;
     const open = (models) => {
       this.suggestTrigger = null;
       this.suggestItems = models.map((m) => ({
-        label: m === cur ? `${m}  \xE2\u0153\u201C` : m,
+        label: m === cur ? `${m}  \u2713` : m,
         desc: m === cur ? "modello attivo" : void 0,
         action: () => {
           this.plugin.settings.model = m;
@@ -638,11 +638,11 @@ var ChatView = class extends import_obsidian3.ItemView {
     void this.plugin.saveSettings();
     void this.populateSessionSelect();
     this.loadHistoryForSession("");
-    new import_obsidian3.Notice("Nuova sessione: il prossimo messaggio partir\xC3\xA0 da zero.");
+    new import_obsidian3.Notice("Nuova sessione: il prossimo messaggio partir\xE0 da zero.");
   }
   continueInNewSession() {
     if (this.running) {
-      new import_obsidian3.Notice("C'\xC3\xA8 gi\xC3\xA0 una richiesta in corso.");
+      new import_obsidian3.Notice("C'\xE8 gi\xE0 una richiesta in corso.");
       return;
     }
     const oldSession = this.viewSession;
@@ -735,7 +735,7 @@ Continua il lavoro da qui.` : "Continua il lavoro dalla sessione precedente.";
     const lines = [];
     for (const rec of recent) {
       const who = rec.role === "user" ? "Utente" : "Opencode";
-      const text = rec.text.length > 800 ? rec.text.slice(0, 800) + "\xE2\u20AC\xA6" : rec.text;
+      const text = rec.text.length > 800 ? rec.text.slice(0, 800) + "\u2B26" : rec.text;
       lines.push(`${who}: ${text}`);
     }
     return `[CRONOLOGIA RECENTE DELLA SESSIONE PRECEDENTE]
@@ -1098,7 +1098,7 @@ ${this.context.content}
           this.plugin.settings.sessionId = "";
           void this.plugin.saveSettings();
           this.addErrorBubble(
-            "La sessione salvata non esiste pi\xC3\xB9: ne verr\xC3\xA0 creata una nuova, rispedisci il messaggio."
+            "La sessione salvata non esiste pi\xF9: ne verr\xE0 creata una nuova, rispedisci il messaggio."
           );
         } else {
           this.addErrorBubble(this.friendlyError(msg));
@@ -1125,13 +1125,13 @@ ${this.context.content}
             this.plugin.settings.sessionId = "";
             void this.plugin.saveSettings();
             this.addErrorBubble(
-              "La sessione salvata non esiste pi\xC3\xB9: ne ho creata una nuova, rispedisci il messaggio."
+              "La sessione salvata non esiste pi\xF9: ne ho creata una nuova, rispedisci il messaggio."
             );
           } else {
             const detail = this.lastStderr.trim().replace(/\s+/g, " ").slice(0, 300);
             this.addErrorBubble(
               this.friendlyError(
-                `Il processo opencode \xC3\xA8 terminato con codice ${code}.${detail ? ` ${detail}` : ""}`
+                `Il processo opencode \xE8 terminato con codice ${code}.${detail ? ` ${detail}` : ""}`
               )
             );
           }
@@ -1223,7 +1223,7 @@ ${this.context.content}
       const cost = (_i = rec.cost) != null ? _i : 0;
       row.createDiv({
         cls: "opencode-msg-stats",
-        text: `Token: ${total.toLocaleString("it-IT")} (in ${inp.toLocaleString("it-IT")} \xC2\xB7 out ${out.toLocaleString("it-IT")}) \xC2\xB7 Costo: ${cost.toFixed(4)} $`
+        text: `Token: ${total.toLocaleString("it-IT")} (in ${inp.toLocaleString("it-IT")} \xB7 out ${out.toLocaleString("it-IT")}) \xB7 Costo: ${cost.toFixed(4)} $`
       });
     }
   }
@@ -1336,7 +1336,7 @@ var AssistantBubble = class {
       const cost = (_d = info.cost) != null ? _d : 0;
       this.statsEl.removeClass("hidden");
       this.statsEl.setText(
-        `Token: ${total.toLocaleString("it-IT")} (in ${input.toLocaleString("it-IT")} \xC2\xB7 out ${output.toLocaleString("it-IT")}) \xC2\xB7 Costo: ${cost.toFixed(4)} $`
+        `Token: ${total.toLocaleString("it-IT")} (in ${input.toLocaleString("it-IT")} \xB7 out ${output.toLocaleString("it-IT")}) \xB7 Costo: ${cost.toFixed(4)} $`
       );
     }
   }
@@ -1383,7 +1383,6 @@ var AssistantBubble = class {
 var import_child_process = require("child_process");
 var import_fs = require("fs");
 var import_path = require("path");
-var import_net = require("net");
 var import_obsidian4 = require("obsidian");
 var OpencodeRunner = class {
   constructor(plugin) {
@@ -1393,10 +1392,6 @@ var OpencodeRunner = class {
     this.modelsCacheAt = 0;
     this.sessionsCache = null;
     this.sessionsCacheAt = 0;
-    this.serverProc = null;
-    this.serverBaseUrl = null;
-    this.serverPassword = "";
-    this.serverReady = null;
     this.plugin = plugin;
   }
   getVersion() {
@@ -1553,9 +1548,6 @@ var OpencodeRunner = class {
     });
   }
   runStream(prompt, fileAttachments, cb) {
-    if (fileAttachments.length === 0) {
-      return this.tryServerRun(prompt, cb);
-    }
     return this.cliRunStream(prompt, fileAttachments, cb);
   }
   cliRunStream(prompt, fileAttachments, cb) {
@@ -1594,226 +1586,6 @@ var OpencodeRunner = class {
       cb.onDone(code != null ? code : -1);
     });
     return { abort: () => this.killProc(child) };
-  }
-  // ===== Server persistente (opencode serve) =====
-  stopServer() {
-    if (this.serverProc) {
-      this.killProc(this.serverProc);
-      this.serverProc = null;
-    }
-    this.serverBaseUrl = null;
-    this.serverReady = null;
-  }
-  tryServerRun(prompt, cb) {
-    const ac = new AbortController();
-    let finished = false;
-    let xhr = null;
-    let sid = null;
-    let cliHandle = null;
-    const finish = (code) => {
-      if (!finished) {
-        finished = true;
-        cb.onDone(code);
-      }
-    };
-    void (async () => {
-      try {
-        const baseUrl = await this.ensureServer();
-        sid = await this.ensureSession(baseUrl, cb);
-        await new Promise((resolveStream) => {
-          const ctx = { assistantId: null };
-          xhr = this.openEventStream(baseUrl, (ev) => this.handleServerEvent(ev, sid, cb, ctx));
-          void this.postMessage(baseUrl, sid, prompt).then(() => resolveStream()).catch((e) => {
-            cb.onError(e instanceof Error ? e.message : String(e));
-            resolveStream();
-          });
-        });
-        finish(0);
-      } catch (e) {
-        if (ac.signal.aborted) {
-          finish(1);
-          return;
-        }
-        cliHandle = this.cliRunStream(prompt, [], cb);
-      }
-    })();
-    return {
-      abort: () => {
-        ac.abort();
-        if (xhr) xhr.abort();
-        if (sid && this.serverBaseUrl) {
-          void this.serverRequest(this.serverBaseUrl, "POST", `/session/${sid}/abort`);
-        }
-        cliHandle == null ? void 0 : cliHandle.abort();
-        finish(1);
-      }
-    };
-  }
-  async ensureServer() {
-    if (this.serverReady) return this.serverReady;
-    this.serverReady = this.startServer().catch((e) => {
-      this.serverReady = null;
-      this.stopServer();
-      throw e;
-    });
-    return this.serverReady;
-  }
-  async startServer() {
-    const s = this.plugin.settings;
-    const adapter = this.plugin.app.vault.adapter;
-    const cwd = adapter instanceof import_obsidian4.FileSystemAdapter ? adapter.getBasePath() : void 0;
-    this.serverPassword = Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
-    const port = await this.pickFreePort();
-    const baseUrl = `http://127.0.0.1:${port}`;
-    const proc = this.spawnBinary(
-      s.binaryPath,
-      ["serve", "--port", String(port), "--hostname", "127.0.0.1"],
-      cwd,
-      { OPENCODE_SERVER_PASSWORD: this.serverPassword }
-    );
-    this.serverProc = proc;
-    proc.on("exit", () => {
-      if (this.serverProc === proc) this.serverProc = null;
-      this.serverBaseUrl = null;
-      this.serverReady = null;
-    });
-    const deadline = Date.now() + 2e4;
-    while (Date.now() < deadline) {
-      try {
-        const r = await this.serverRequest(baseUrl, "GET", "/global/health");
-        if (r.status === 200) {
-          this.serverBaseUrl = baseUrl;
-          return baseUrl;
-        }
-      } catch (e) {
-      }
-      await new Promise((r) => setTimeout(r, 500));
-    }
-    throw new Error("Impossibile avviare opencode serve (timeout)");
-  }
-  pickFreePort() {
-    return new Promise((resolve, reject) => {
-      const srv = (0, import_net.createServer)();
-      srv.once("error", reject);
-      srv.listen(0, "127.0.0.1", () => {
-        const port = srv.address().port;
-        srv.close(() => resolve(port));
-      });
-    });
-  }
-  authHeader() {
-    return "Basic " + btoa(`opencode:${this.serverPassword}`);
-  }
-  async serverRequest(baseUrl, method, path, body) {
-    const headers = { Authorization: this.authHeader() };
-    let data;
-    if (body !== void 0) {
-      data = JSON.stringify(body);
-      headers["Content-Type"] = "application/json";
-    }
-    const res = await fetch(`${baseUrl}${path}`, { method, headers, body: data });
-    return { status: res.status, text: await res.text() };
-  }
-  async ensureSession(baseUrl, cb) {
-    const existing = this.plugin.settings.sessionId;
-    if (existing) return existing;
-    const r = await this.serverRequest(baseUrl, "POST", "/session", {});
-    let sid = "";
-    try {
-      sid = String(JSON.parse(r.text).id);
-    } catch (e) {
-    }
-    if (!sid) throw new Error(`Creazione sessione fallita: ${r.status}`);
-    cb.onSession(sid);
-    return sid;
-  }
-  async postMessage(baseUrl, sid, prompt) {
-    const s = this.plugin.settings;
-    const model = s.model || DEFAULT_SETTINGS.model;
-    const slash = model.indexOf("/");
-    const providerID = slash >= 0 ? model.slice(0, slash) : "";
-    const modelID = slash >= 0 ? model.slice(slash + 1) : model;
-    const body = {
-      parts: [{ type: "text", text: prompt }],
-      model: { providerID, modelID }
-    };
-    if (s.agent) body.agent = s.agent;
-    const r = await this.serverRequest(baseUrl, "POST", `/session/${sid}/message`, body);
-    if (r.status !== 200) {
-      throw new Error(`Invio messaggio fallito: ${r.status} ${r.text.slice(0, 200)}`);
-    }
-  }
-  openEventStream(baseUrl, onEvent) {
-    const xhr = new XMLHttpRequest();
-    xhr.open("GET", `${baseUrl}/event`, true);
-    xhr.setRequestHeader("Authorization", this.authHeader());
-    let buffer = "";
-    let lastLen = 0;
-    xhr.onprogress = () => {
-      const text = xhr.responseText;
-      const chunk = text.slice(lastLen);
-      lastLen = text.length;
-      buffer += chunk;
-      let idx;
-      while ((idx = buffer.indexOf("\n")) >= 0) {
-        const line = buffer.slice(0, idx).trim();
-        buffer = buffer.slice(idx + 1);
-        if (line.startsWith("data:")) {
-          try {
-            onEvent(JSON.parse(line.slice(5).trim()));
-          } catch (e) {
-          }
-        }
-      }
-    };
-    xhr.send();
-    return xhr;
-  }
-  handleServerEvent(ev, sid, cb, ctx) {
-    var _a, _b, _c, _d, _e, _f, _g;
-    const e = ev;
-    const props = (_a = e.properties) != null ? _a : {};
-    const evSid = props.sessionID;
-    if (typeof evSid === "string" && evSid !== sid) return;
-    switch (e.type) {
-      case "session.error":
-        cb.onError(this.errorMessage(props.error));
-        break;
-      case "message.updated": {
-        const info = props.info;
-        if ((info == null ? void 0 : info.role) === "assistant") {
-          if (!ctx.assistantId && info.id) ctx.assistantId = info.id;
-          if (info.tokens || info.cost !== void 0) {
-            cb.onFinish({ tokens: info.tokens, cost: info.cost });
-          }
-        }
-        break;
-      }
-      case "message.part.updated": {
-        const part = props.part;
-        if (!part) break;
-        if (!ctx.assistantId || part.messageID !== ctx.assistantId) break;
-        if (part.type === "text" && typeof part.text === "string") {
-          cb.onText(part.text, String(part.id));
-        } else if (part.type === "reasoning" && typeof part.text === "string") {
-          cb.onReasoning(part.text, String(part.id));
-        } else if (part.type === "tool") {
-          const status = (_c = (_b = part.state) == null ? void 0 : _b.status) != null ? _c : "completed";
-          const title = ((_d = part.state) == null ? void 0 : _d.title) || part.tool || "Strumento";
-          cb.onStep({
-            id: String((_e = part.id) != null ? _e : "step-" + Date.now()),
-            tool: String(part.tool),
-            title: String(title),
-            state: String(status),
-            input: (_f = part.state) == null ? void 0 : _f.input,
-            output: (_g = part.state) == null ? void 0 : _g.output
-          });
-        }
-        break;
-      }
-      default:
-        break;
-    }
   }
   killProc(child) {
     if (!child || child.pid === void 0) return;
@@ -2065,7 +1837,6 @@ var OpencodePlugin = class extends import_obsidian5.Plugin {
     return leaf.view;
   }
   onunload() {
-    this.runner.stopServer();
     if (this.savePending) {
       void this.saveData({ ...this.settings, histories: this.histories });
     }

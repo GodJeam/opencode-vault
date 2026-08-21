@@ -1,4 +1,4 @@
-﻿import { App, Modal, Notice, Setting, SuggestModal } from "obsidian";
+import { App, Modal, Notice, Setting, SuggestModal } from "obsidian";
 import type { TFile } from "obsidian";
 import type { OpencodeRunner, UsageWindow } from "./opencodeRunner";
 
@@ -29,7 +29,7 @@ export class RenameModal extends Modal {
           if (!input) return;
           const v = input.value.trim();
           if (!v) {
-            new Notice("Il titolo non puÃ² essere vuoto.");
+            new Notice("Il titolo non può essere vuoto.");
             return;
           }
           this.onSubmit(v);
@@ -123,8 +123,8 @@ export class FileSuggestModal extends SuggestModal<TFile> {
     super(app);
     this.setPlaceholder("Cerca un file del vault da allegare...");
     this.setInstructions([
-      { command: "â†‘â†“", purpose: "navigare" },
-      { command: "â†µ", purpose: "allegare" },
+      { command: "↑↓", purpose: "navigare" },
+      { command: "↵", purpose: "allegare" },
       { command: "esc", purpose: "chiudere" },
     ]);
   }

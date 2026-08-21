@@ -1,4 +1,4 @@
-﻿import { App, DropdownComponent, Notice, PluginSettingTab, Setting } from "obsidian";
+import { App, DropdownComponent, Notice, PluginSettingTab, Setting } from "obsidian";
 import type OpencodePlugin from "./main";
 
 export interface OpencodeSettings {
@@ -40,7 +40,7 @@ export class OpencodeSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName("Percorso binario opencode")
       .setDesc(
-        "Comando o percorso completo dell'eseguibile. Di solito basta 'opencode' se Ã¨ nel PATH. In caso di problemi usa il percorso completo (es. su Windows .../npm/opencode.cmd, su macOS/Linux .../bin/opencode)."
+        "Comando o percorso completo dell'eseguibile. Di solito basta 'opencode' se è nel PATH. In caso di problemi usa il percorso completo (es. su Windows .../npm/opencode.cmd, su macOS/Linux .../bin/opencode)."
       )
       .addText((text) =>
         text
@@ -55,7 +55,7 @@ export class OpencodeSettingTab extends PluginSettingTab {
     const modelSetting = new Setting(containerEl)
       .setName("Modello")
       .setDesc(
-        "Seleziona un modello dalla lista di opencode. Lo stesso selettore Ã¨ disponibile anche nella barra della chat. Il default usa il provider OpenCode Go (lo stesso dell'app desktop)."
+        "Seleziona un modello dalla lista di opencode. Lo stesso selettore è disponibile anche nella barra della chat. Il default usa il provider OpenCode Go (lo stesso dell'app desktop)."
       );
 
     modelSetting.addDropdown((dd) => {
@@ -106,14 +106,14 @@ export class OpencodeSettingTab extends PluginSettingTab {
         btn.setButtonText("Azzera").onClick(async () => {
           this.plugin.settings.sessionId = "";
           await this.plugin.saveSettings();
-          new Notice("Sessione azzerata: il prossimo messaggio partirÃ  da una nuova sessione.");
+          new Notice("Sessione azzerata: il prossimo messaggio partirà da una nuova sessione.");
         })
       );
 
     new Setting(containerEl)
       .setName("Auto-approve permessi")
       .setDesc(
-        "Concede automaticamente i permessi degli strumenti (bash, edit file, ecc.). In modalitÃ  non interattiva opencode negherebbe tutto senza questo flag. Disattivalo per maggiore sicurezza."
+        "Concede automaticamente i permessi degli strumenti (bash, edit file, ecc.). In modalità non interattiva opencode negherebbe tutto senza questo flag. Disattivalo per maggiore sicurezza."
       )
       .addToggle((toggle) =>
         toggle
