@@ -13,7 +13,7 @@
     "ai",
     "chat"
   ],
-  "license": "MIT",
+  "license": "GPL-3.0",
   "devDependencies": {
     "@codemirror/language": "^6.12.4",
     "@lezer/common": "^1.5.2",
