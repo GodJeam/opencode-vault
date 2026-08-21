@@ -285,10 +285,12 @@ export class OpencodeRunner {
   }
 
   private handleLine(line: string, cb: StreamCallbacks): void {
-    // Gli output di alcuni strumenti possono produrre eventi di diversi MB:
-    // JSON.parse di righe giganti blocca la UI. Le saltiamo (il testo di
-    // risposta usa eventi piccoli e continua a streammare normalmente).
-    if (line.length > 1_500_000) {
+    // Gli output di alcuni strumenti possono essere enormi, ma una soglia troppo
+    // bassa scarterebbe anche gli eventi `text` delle risposte molto lunghe
+    // (note complete con TikZ possono superare 1 MB), "congelando" la chat.
+    // Saltiamo solo righe patologiche (>20 MB): JSON.parse di quelle bloccherebbe
+    // davvero la UI. Le risposte normali (anche grandi) vengono sempre processate.
+    if (line.length > 20_000_000) {
       cb.onRaw?.(`[omesso evento di ${line.length} byte]\n`);
       return;
     }

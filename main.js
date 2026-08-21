@@ -1651,7 +1651,7 @@ var OpencodeRunner = class {
   }
   handleLine(line, cb) {
     var _a, _b, _c, _d, _e, _f;
-    if (line.length > 15e5) {
+    if (line.length > 2e7) {
       (_a = cb.onRaw) == null ? void 0 : _a.call(cb, `[omesso evento di ${line.length} byte]
 `);
       return;
