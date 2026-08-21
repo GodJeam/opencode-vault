@@ -1120,6 +1120,7 @@ private statsEl: HTMLElement;
   private rawReasoning = "";
   private lastTokens?: { total?: number; input?: number; output?: number };
   private lastCost?: number;
+  private renderTimer: number | null = null;
 
   constructor(
     private row: HTMLElement,
@@ -1140,11 +1141,41 @@ private statsEl: HTMLElement;
 
 setText(text: string): void {
     this.rawText = text;
-    // Durante lo streaming mostriamo il testo grezzo (economico): il render
-    // Markdown completo avviene una sola volta in finalize(). Re-renderizzare
-    // il markdown a ogni token bloccava la UI sulle risposte lunghe.
-    this.contentEl.textContent = text;
+    // Sotto i 30k caratteri ripristina il rendering markdown in streaming
+    // (come nel comportamento originale). Oltre quella soglia il re-render
+    // markdown diventerebbe O(n²) e bloccherebbe la UI: passiamo al testo grezzo.
+    if (text.length <= 30000) {
+      this.scheduleRender();
+    } else {
+      if (this.renderTimer !== null) {
+        clearTimeout(this.renderTimer);
+        this.renderTimer = null;
+      }
+      this.contentEl.empty();
+      this.contentEl.textContent = text;
+    }
     this.view.scheduleScroll();
+  }
+
+  private scheduleRender(): void {
+    if (this.renderTimer !== null) clearTimeout(this.renderTimer);
+    this.renderTimer = window.setTimeout(() => this.flushRender(), 120);
+  }
+
+  private flushRender(): void {
+    if (this.renderTimer !== null) {
+      clearTimeout(this.renderTimer);
+      this.renderTimer = null;
+    }
+    if (this.rawText.length > 30000) {
+      this.contentEl.empty();
+      this.contentEl.textContent = this.rawText;
+      return;
+    }
+    this.contentEl.empty();
+    if (this.rawText.trim()) {
+      MarkdownRenderer.render(this.app, this.rawText, this.contentEl, "", this.view);
+    }
   }
 
   setReasoning(text: string): void {
@@ -1157,8 +1188,6 @@ setText(text: string): void {
 addStep(step: StepInfo): void {
     const showIO = this.view.plugin.settings.showToolIO;
     const existing = this.steps.get(step.id);
-    // Evita che il DOM cresca senza limiti sulle task lunghe con migliaia di passi.
-    if (!existing && this.steps.size >= 150) return;
 
     if (step.state === "running") {
       if (existing) return;

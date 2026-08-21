@@ -1267,6 +1267,7 @@ var AssistantBubble = class {
     this.steps = /* @__PURE__ */ new Map();
     this.rawText = "";
     this.rawReasoning = "";
+    this.renderTimer = null;
     this.view.metaWithCopy(this.row, "Opencode", () => this.rawText);
     this.reasoningEl = this.row.createEl("details", { cls: "opencode-reasoning hidden" });
     const summary = this.reasoningEl.createEl("summary");
@@ -1279,8 +1280,36 @@ var AssistantBubble = class {
   }
   setText(text) {
     this.rawText = text;
-    this.contentEl.textContent = text;
+    if (text.length <= 3e4) {
+      this.scheduleRender();
+    } else {
+      if (this.renderTimer !== null) {
+        clearTimeout(this.renderTimer);
+        this.renderTimer = null;
+      }
+      this.contentEl.empty();
+      this.contentEl.textContent = text;
+    }
     this.view.scheduleScroll();
+  }
+  scheduleRender() {
+    if (this.renderTimer !== null) clearTimeout(this.renderTimer);
+    this.renderTimer = window.setTimeout(() => this.flushRender(), 120);
+  }
+  flushRender() {
+    if (this.renderTimer !== null) {
+      clearTimeout(this.renderTimer);
+      this.renderTimer = null;
+    }
+    if (this.rawText.length > 3e4) {
+      this.contentEl.empty();
+      this.contentEl.textContent = this.rawText;
+      return;
+    }
+    this.contentEl.empty();
+    if (this.rawText.trim()) {
+      import_obsidian3.MarkdownRenderer.render(this.app, this.rawText, this.contentEl, "", this.view);
+    }
   }
   setReasoning(text) {
     this.rawReasoning = text;
@@ -1291,7 +1320,6 @@ var AssistantBubble = class {
   addStep(step) {
     const showIO = this.view.plugin.settings.showToolIO;
     const existing = this.steps.get(step.id);
-    if (!existing && this.steps.size >= 150) return;
     if (step.state === "running") {
       if (existing) return;
       const row = this.stepsEl.createDiv({ cls: "opencode-step opencode-step--running" });
