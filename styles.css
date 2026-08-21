@@ -213,6 +213,22 @@
   display: flex;
   align-items: center;
   gap: 5px;
+  width: 100%;
+}
+
+.opencode-meta-spacer {
+  flex: 1;
+}
+
+.opencode-meta .opencode-icon-btn {
+  width: 18px;
+  height: 18px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.opencode-message:hover .opencode-meta .opencode-icon-btn {
+  opacity: 1;
 }
 
 .opencode-message--user .opencode-meta {

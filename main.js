@@ -989,11 +989,9 @@ Continua il lavoro da qui, tenendo conto del contesto sopra.`;
     const row = this.messagesEl.createDiv({
       cls: "opencode-message opencode-message--assistant"
     });
-    row.createDiv({ cls: "opencode-meta", text: "Opencode" });
-    row.createDiv({
-      text: "Ciao! Sono il plugin che collega il tuo vault a opencode. Scrivi un messaggio qui sotto. Prova i comandi: / per i comandi, @ per allegare un file, ! per le azioni rapide.",
-      cls: "opencode-bubble"
-    });
+    const text = "Ciao! Sono il plugin che collega il tuo vault a opencode. Scrivi un messaggio qui sotto. Prova i comandi: / per i comandi, @ per allegare un file, ! per le azioni rapide.";
+    this.metaWithCopy(row, "Opencode", () => text);
+    row.createDiv({ text, cls: "opencode-bubble" });
   }
   async send() {
     var _a;
@@ -1147,7 +1145,7 @@ ${this.context.content}
     const row = this.messagesEl.createDiv({
       cls: "opencode-message opencode-message--user"
     });
-    row.createDiv({ cls: "opencode-meta", text: "Tu" });
+    this.metaWithCopy(row, "Tu", () => text);
     if (ctxLabel) {
       row.createDiv({ cls: "opencode-context-hint", text: `con contesto: ${ctxLabel}` });
     }
@@ -1166,9 +1164,35 @@ ${this.context.content}
     const row = this.messagesEl.createDiv({
       cls: "opencode-message opencode-message--error"
     });
-    row.createDiv({ cls: "opencode-meta", text: "Errore" });
+    this.metaWithCopy(row, "Errore", () => msg);
     row.createDiv({ cls: "opencode-bubble", text: msg });
     this.scrollToBottom();
+  }
+  metaWithCopy(row, label, getText) {
+    const meta = row.createDiv({ cls: "opencode-meta" });
+    meta.createSpan({ text: label });
+    meta.createSpan({ cls: "opencode-meta-spacer" });
+    const btn = meta.createEl("button", {
+      cls: "opencode-icon-btn",
+      attr: { title: "Copia testo" }
+    });
+    (0, import_obsidian3.setIcon)(btn, "copy");
+    btn.addEventListener("click", () => this.copyText(getText()));
+  }
+  async copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
+    new import_obsidian3.Notice("Testo copiato.");
   }
   setRunningUI(running) {
     this.sendBtn.disabled = running;
@@ -1204,7 +1228,7 @@ ${this.context.content}
     const row = this.messagesEl.createDiv({
       cls: "opencode-message opencode-message--assistant"
     });
-    row.createDiv({ cls: "opencode-meta", text: "Opencode" });
+    this.metaWithCopy(row, "Opencode", () => rec.text);
     if (rec.reasoning && rec.reasoning.trim()) {
       const det = row.createEl("details", { cls: "opencode-reasoning" });
       det.createEl("summary").setText("Ragionamento");
@@ -1243,7 +1267,7 @@ var AssistantBubble = class {
     this.steps = /* @__PURE__ */ new Map();
     this.rawText = "";
     this.rawReasoning = "";
-    this.row.createDiv({ cls: "opencode-meta", text: "Opencode" });
+    this.view.metaWithCopy(this.row, "Opencode", () => this.rawText);
     this.reasoningEl = this.row.createEl("details", { cls: "opencode-reasoning hidden" });
     const summary = this.reasoningEl.createEl("summary");
     summary.setText("Ragionamento");

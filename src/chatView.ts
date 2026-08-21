@@ -813,15 +813,14 @@ this.stopBtn.addEventListener("click", () => {
     this.inputEl.focus();
   }
 
-  private addWelcome(): void {
+private addWelcome(): void {
     const row = this.messagesEl.createDiv({
       cls: "opencode-message opencode-message--assistant",
     });
-    row.createDiv({ cls: "opencode-meta", text: "Opencode" });
-    row.createDiv({
-      text: "Ciao! Sono il plugin che collega il tuo vault a opencode. Scrivi un messaggio qui sotto. Prova i comandi: / per i comandi, @ per allegare un file, ! per le azioni rapide.",
-      cls: "opencode-bubble",
-    });
+    const text =
+      "Ciao! Sono il plugin che collega il tuo vault a opencode. Scrivi un messaggio qui sotto. Prova i comandi: / per i comandi, @ per allegare un file, ! per le azioni rapide.";
+    this.metaWithCopy(row, "Opencode", () => text);
+    row.createDiv({ text, cls: "opencode-bubble" });
   }
 
   private async send(): Promise<void> {
@@ -980,11 +979,11 @@ this.stopBtn.addEventListener("click", () => {
     this.currentProc = proc;
   }
 
-  private addUserMessage(text: string, ctxLabel?: string): void {
+private addUserMessage(text: string, ctxLabel?: string): void {
     const row = this.messagesEl.createDiv({
       cls: "opencode-message opencode-message--user",
     });
-    row.createDiv({ cls: "opencode-meta", text: "Tu" });
+    this.metaWithCopy(row, "Tu", () => text);
     if (ctxLabel) {
       row.createDiv({ cls: "opencode-context-hint", text: `con contesto: ${ctxLabel}` });
     }
@@ -1001,13 +1000,41 @@ this.stopBtn.addEventListener("click", () => {
     return bubble;
   }
 
-  private addErrorBubble(msg: string): void {
+private addErrorBubble(msg: string): void {
     const row = this.messagesEl.createDiv({
       cls: "opencode-message opencode-message--error",
     });
-    row.createDiv({ cls: "opencode-meta", text: "Errore" });
+    this.metaWithCopy(row, "Errore", () => msg);
     row.createDiv({ cls: "opencode-bubble", text: msg });
     this.scrollToBottom();
+  }
+
+  metaWithCopy(row: HTMLElement, label: string, getText: () => string): void {
+    const meta = row.createDiv({ cls: "opencode-meta" });
+    meta.createSpan({ text: label });
+    meta.createSpan({ cls: "opencode-meta-spacer" });
+    const btn = meta.createEl("button", {
+      cls: "opencode-icon-btn",
+      attr: { title: "Copia testo" },
+    });
+    setIcon(btn, "copy");
+    btn.addEventListener("click", () => this.copyText(getText()));
+  }
+
+  private async copyText(text: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
+    new Notice("Testo copiato.");
   }
 
   private setRunningUI(running: boolean): void {
@@ -1044,8 +1071,8 @@ this.stopBtn.addEventListener("click", () => {
   private renderHistoryAssistant(rec: HistoryAssistant): void {
     const row = this.messagesEl.createDiv({
       cls: "opencode-message opencode-message--assistant",
-    });
-    row.createDiv({ cls: "opencode-meta", text: "Opencode" });
+});
+    this.metaWithCopy(row, "Opencode", () => rec.text);
     if (rec.reasoning && rec.reasoning.trim()) {
       const det = row.createEl("details", { cls: "opencode-reasoning" });
       det.createEl("summary").setText("Ragionamento");
@@ -1098,8 +1125,8 @@ private statsEl: HTMLElement;
     private row: HTMLElement,
     private app: App,
     private view: ChatView
-  ) {
-    this.row.createDiv({ cls: "opencode-meta", text: "Opencode" });
+) {
+    this.view.metaWithCopy(this.row, "Opencode", () => this.rawText);
     this.reasoningEl = this.row.createEl("details", { cls: "opencode-reasoning hidden" });
     const summary = this.reasoningEl.createEl("summary");
     summary.setText("Ragionamento");
