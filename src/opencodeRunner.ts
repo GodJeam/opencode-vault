@@ -60,6 +60,10 @@ export class OpencodeRunner {
   private plugin: OpencodePlugin;
   private resolvedBinary: string | null = null;
   private resolvedBinaryTried = false;
+  private modelsCache: string[] | null = null;
+  private modelsCacheAt = 0;
+  private sessionsCache: SessionInfo[] | null = null;
+  private sessionsCacheAt = 0;
 
   constructor(plugin: OpencodePlugin) {
     this.plugin = plugin;
@@ -82,7 +86,10 @@ export class OpencodeRunner {
     });
   }
 
-  listModels(): Promise<string[]> {
+  listModels(force = false): Promise<string[]> {
+    if (!force && this.modelsCache && Date.now() - this.modelsCacheAt < 10_000) {
+      return Promise.resolve(this.modelsCache);
+    }
     const s = this.plugin.settings;
     return new Promise((resolve, reject) => {
       const [bin, args] = this.buildCommand(s, ["models"]);
@@ -99,6 +106,8 @@ export class OpencodeRunner {
             .map((l) => l.trim())
             .filter((l) => /^[a-zA-Z0-9_.:/+-]+$/.test(l))
             .sort();
+          this.modelsCache = models;
+          this.modelsCacheAt = Date.now();
           resolve(models);
         } else {
           reject(new Error(err.trim() || out.trim() || `exit code ${code}`));
@@ -107,7 +116,10 @@ export class OpencodeRunner {
     });
   }
 
-  listSessions(): Promise<SessionInfo[]> {
+  listSessions(force = false): Promise<SessionInfo[]> {
+    if (!force && this.sessionsCache && Date.now() - this.sessionsCacheAt < 2_000) {
+      return Promise.resolve(this.sessionsCache);
+    }
     const s = this.plugin.settings;
     return new Promise((resolve, reject) => {
       const [bin, args] = this.buildCommand(s, ["session", "list", "--format", "json"]);
@@ -121,7 +133,10 @@ export class OpencodeRunner {
         if (code === 0) {
           try {
             const arr = JSON.parse(out);
-            resolve(Array.isArray(arr) ? (arr as SessionInfo[]) : []);
+            const sessions = Array.isArray(arr) ? (arr as SessionInfo[]) : [];
+            this.sessionsCache = sessions;
+            this.sessionsCacheAt = Date.now();
+            resolve(sessions);
           } catch {
             resolve([]);
           }

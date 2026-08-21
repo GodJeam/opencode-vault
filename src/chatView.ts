@@ -1,4 +1,4 @@
-import { App, FileSystemAdapter, ItemView, MarkdownRenderer, Notice, WorkspaceLeaf, setIcon } from "obsidian";
+﻿import { App, FileSystemAdapter, ItemView, MarkdownRenderer, Notice, WorkspaceLeaf, setIcon } from "obsidian";
 import type { ChildProcess } from "child_process";
 import type OpencodePlugin from "./main";
 import type { HistoryAssistant } from "./main";
@@ -58,7 +58,6 @@ export class ChatView extends ItemView {
   private suggestIndex = 0;
   private suggestOpen = false;
   private suggestTrigger: { char: string; start: number } | null = null;
-  private modelCache: string[] = [];
   private vaultPaths: string[] | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: OpencodePlugin) {
@@ -174,7 +173,7 @@ export class ChatView extends ItemView {
     statsBtn.addEventListener("click", () => new StatsModal(this.app, this.plugin.runner).open());
 
     const attachBtn = this.contextBar.createEl("button", { cls: "opencode-add-note-btn" });
-    attachBtn.setText("＋ Allega file");
+    attachBtn.setText("ï¼‹ Allega file");
     attachBtn.addEventListener("click", () => this.openFilePicker());
 
     const add = this.contextBar.createEl("button", { cls: "opencode-add-note-btn" });
@@ -271,7 +270,7 @@ export class ChatView extends ItemView {
     new ConfirmModal(
       this.app,
       "Elimina sessione",
-      `Vuoi eliminare la sessione "${title}"? Verrà rimossa anche la cronologia salvata in Obsidian.`,
+      `Vuoi eliminare la sessione "${title}"? VerrÃ  rimossa anche la cronologia salvata in Obsidian.`,
       "Elimina",
       () => {
         this.plugin.runner
@@ -311,7 +310,7 @@ export class ChatView extends ItemView {
     sel.empty();
     const newOpt = sel.createEl("option");
     newOpt.value = "";
-    newOpt.textContent = "＋ Nuova sessione";
+    newOpt.textContent = "ï¼‹ Nuova sessione";
     try {
       const sessions = await this.plugin.runner.listSessions();
       sessions.sort((a, b) => (b.updated ?? 0) - (a.updated ?? 0));
@@ -322,8 +321,8 @@ export class ChatView extends ItemView {
         const o = sel.createEl("option");
         o.value = s.id;
         const title = s.title || s.id;
-        const mark = pinnedSet.has(s.id) ? "● " : "";
-        o.textContent = mark + (title.length > 40 ? title.slice(0, 37) + "…" : title);
+        const mark = pinnedSet.has(s.id) ? "â— " : "";
+        o.textContent = mark + (title.length > 40 ? title.slice(0, 37) + "â€¦" : title);
         o.title = title;
       }
     } catch {
@@ -351,7 +350,7 @@ export class ChatView extends ItemView {
     if (!this.statsBar) return;
     this.statsBar.empty();
     this.statsBar.createSpan({
-      text: `Token: ${this.stats.total.toLocaleString("it-IT")} (in ${this.stats.input.toLocaleString("it-IT")} · out ${this.stats.output.toLocaleString("it-IT")}) · Costo: ${this.stats.cost.toFixed(4)} $`,
+      text: `Token: ${this.stats.total.toLocaleString("it-IT")} (in ${this.stats.input.toLocaleString("it-IT")} Â· out ${this.stats.output.toLocaleString("it-IT")}) Â· Costo: ${this.stats.cost.toFixed(4)} $`,
       cls: "opencode-stats-text",
     });
   }
@@ -422,7 +421,7 @@ export class ChatView extends ItemView {
   private updateModelBtn(): void {
     if (!this.modelBtn) return;
     const m = this.plugin.settings.model || DEFAULT_SETTINGS.model;
-    this.modelBtn.setText(m.length > 30 ? m.slice(0, 27) + "…" : m);
+    this.modelBtn.setText(m.length > 30 ? m.slice(0, 27) + "â€¦" : m);
   }
 
   private openModelList(): void {
@@ -430,7 +429,7 @@ export class ChatView extends ItemView {
     const open = (models: string[]) => {
       this.suggestTrigger = null;
       this.suggestItems = models.map((m) => ({
-        label: m === cur ? `${m}  ✓` : m,
+        label: m === cur ? `${m}  âœ“` : m,
         desc: m === cur ? "modello attivo" : undefined,
         action: () => {
           this.plugin.settings.model = m;
@@ -446,16 +445,9 @@ export class ChatView extends ItemView {
       this.renderSuggest();
       this.inputEl.focus();
     };
-    if (this.modelCache.length > 0) {
-      open(this.modelCache);
-      return;
-    }
     this.plugin.runner
       .listModels()
-      .then((models) => {
-        this.modelCache = models;
-        open(models);
-      })
+      .then(open)
       .catch((e) => new Notice(`Errore: ${(e as Error).message}`));
   }
 
@@ -465,12 +457,12 @@ export class ChatView extends ItemView {
     void this.plugin.saveSettings();
     void this.populateSessionSelect();
     this.loadHistoryForSession("");
-    new Notice("Nuova sessione: il prossimo messaggio partirà da zero.");
+    new Notice("Nuova sessione: il prossimo messaggio partirÃ  da zero.");
   }
 
   continueInNewSession(): void {
     if (this.running) {
-      new Notice("C'è già una richiesta in corso.");
+      new Notice("C'Ã¨ giÃ  una richiesta in corso.");
       return;
     }
     const oldSession = this.viewSession;
@@ -493,7 +485,7 @@ export class ChatView extends ItemView {
     const proc = this.plugin.runner.runStream(summaryPrompt, [], {
       onSession: () => {},
       onRaw: (chunk) => {
-        this.lastStderr += chunk;
+        this.lastStderr = (this.lastStderr + chunk).slice(-4000);
       },
       onText: (text) => {
         bubble.setText(text);
@@ -565,7 +557,7 @@ export class ChatView extends ItemView {
     const lines: string[] = [];
     for (const rec of recent) {
       const who = rec.role === "user" ? "Utente" : "Opencode";
-      const text = rec.text.length > 800 ? rec.text.slice(0, 800) + "…" : rec.text;
+      const text = rec.text.length > 800 ? rec.text.slice(0, 800) + "â€¦" : rec.text;
       lines.push(`${who}: ${text}`);
     }
     return (
@@ -867,7 +859,7 @@ export class ChatView extends ItemView {
   private toAbsolutePath(vaultPath: string): string {
     const adapter = this.app.vault.adapter;
     if (adapter instanceof FileSystemAdapter) {
-      // Uso i separatori nativi della piattaforma per compatibilità Windows/macOS/Linux
+      // Uso i separatori nativi della piattaforma per compatibilitÃ  Windows/macOS/Linux
       const sep = process.platform === "win32" ? "\\" : "/";
       return `${adapter.getBasePath()}${sep}${vaultPath.split("/").join(sep)}`;
     }
@@ -912,7 +904,7 @@ export class ChatView extends ItemView {
         }
       },
       onRaw: (chunk) => {
-        this.lastStderr += chunk;
+        this.lastStderr = (this.lastStderr + chunk).slice(-4000);
       },
       onText: (text) => {
         if (/does not support image input|image input is not supported/i.test(text)) {
@@ -943,7 +935,7 @@ export class ChatView extends ItemView {
           this.plugin.settings.sessionId = "";
           void this.plugin.saveSettings();
           this.addErrorBubble(
-            "La sessione salvata non esiste più: ne verrà creata una nuova, rispedisci il messaggio."
+            "La sessione salvata non esiste piÃ¹: ne verrÃ  creata una nuova, rispedisci il messaggio."
           );
         } else {
           this.addErrorBubble(this.friendlyError(msg));
@@ -970,13 +962,13 @@ export class ChatView extends ItemView {
             this.plugin.settings.sessionId = "";
             void this.plugin.saveSettings();
             this.addErrorBubble(
-              "La sessione salvata non esiste più: ne ho creata una nuova, rispedisci il messaggio."
+              "La sessione salvata non esiste piÃ¹: ne ho creata una nuova, rispedisci il messaggio."
             );
           } else {
             const detail = this.lastStderr.trim().replace(/\s+/g, " ").slice(0, 300);
             this.addErrorBubble(
               this.friendlyError(
-                `Il processo opencode è terminato con codice ${code}.${detail ? ` ${detail}` : ""}`
+                `Il processo opencode Ã¨ terminato con codice ${code}.${detail ? ` ${detail}` : ""}`
               )
             );
           }
@@ -1075,7 +1067,7 @@ export class ChatView extends ItemView {
       const cost = rec.cost ?? 0;
       row.createDiv({
         cls: "opencode-msg-stats",
-        text: `Token: ${total.toLocaleString("it-IT")} (in ${inp.toLocaleString("it-IT")} · out ${out.toLocaleString("it-IT")}) · Costo: ${cost.toFixed(4)} $`,
+        text: `Token: ${total.toLocaleString("it-IT")} (in ${inp.toLocaleString("it-IT")} Â· out ${out.toLocaleString("it-IT")}) Â· Costo: ${cost.toFixed(4)} $`,
       });
     }
   }
@@ -1210,7 +1202,7 @@ class AssistantBubble {
       const cost = info.cost ?? 0;
       this.statsEl.removeClass("hidden");
       this.statsEl.setText(
-        `Token: ${total.toLocaleString("it-IT")} (in ${input.toLocaleString("it-IT")} · out ${output.toLocaleString("it-IT")}) · Costo: ${cost.toFixed(4)} $`
+        `Token: ${total.toLocaleString("it-IT")} (in ${input.toLocaleString("it-IT")} Â· out ${output.toLocaleString("it-IT")}) Â· Costo: ${cost.toFixed(4)} $`
       );
     }
   }
@@ -1240,7 +1232,7 @@ class AssistantBubble {
 
   private scheduleRender(): void {
     if (this.renderTimer !== null) clearTimeout(this.renderTimer);
-    this.renderTimer = window.setTimeout(() => this.flushRender(), 120);
+    this.renderTimer = window.setTimeout(() => this.flushRender(), 200);
   }
 
   private flushRender(): void {
