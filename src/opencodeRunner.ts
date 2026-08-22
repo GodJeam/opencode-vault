@@ -254,7 +254,7 @@ export class OpencodeRunner {
         try {
           this.handleLine(line, cb);
         } catch (e) {
-          console.error("opencode-vault: errore gestendo un evento:", e);
+          console.error("opencode-vault: error handling an event:", e);
         }
       }
     });
@@ -324,7 +324,7 @@ export class OpencodeRunner {
           cb.onStep({
             id: String(part.callID || part.id || "step-" + Date.now()),
             tool: String(part.tool),
-            title: String(part.state?.title || part.tool || "Strumento"),
+            title: String(part.state?.title || part.tool || this.plugin.t("Tool")),
             state: String(state),
             input: part.state?.input,
             output: part.state?.output,
@@ -351,7 +351,7 @@ export class OpencodeRunner {
   }
 
   private errorMessage(err: any): string {
-    if (!err) return "Errore sconosciuto";
+    if (!err) return this.plugin.t("Unknown error");
     const msg = err.data?.message || err.message || JSON.stringify(err);
     return String(msg);
   }

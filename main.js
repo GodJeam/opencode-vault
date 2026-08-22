@@ -57,6 +57,7 @@ var OpencodeSettingTab = class extends import_obsidian.PluginSettingTab {
       (dd) => dd.addOption("en", t("English")).addOption("it", t("Italian")).setValue(this.plugin.settings.language).onChange(async (value) => {
         this.plugin.settings.language = value;
         await this.plugin.saveSettings();
+        new import_obsidian.Notice(t("Language changed. Reload Obsidian to apply it everywhere."));
         this.display();
       })
     );
@@ -1064,7 +1065,7 @@ ${this.context.content}
       const now = Date.now();
       if (now - lastStatusUpdate > 400) {
         lastStatusUpdate = now;
-        bubble.status.setText(`\u2026 ${eventCount} this.plugin.t("events")`);
+        bubble.status.setText(`\u2026 ${eventCount} ${this.plugin.t("events")}`);
       }
     };
     const proc = this.plugin.runner.runStream(prompt, filePaths, {
@@ -1257,7 +1258,7 @@ ${this.context.content}
     this.metaWithCopy(row, this.plugin.t("Opencode"), () => rec.text);
     if (rec.reasoning && rec.reasoning.trim()) {
       const det = row.createEl("details", { cls: "opencode-reasoning" });
-      det.createEl("summary").setText("Ragionamento");
+      det.createEl("summary").setText(this.plugin.t("Reasoning"));
       det.createDiv({ cls: "opencode-reasoning-content", text: rec.reasoning });
     }
     const content = row.createDiv({ cls: "opencode-bubble opencode-bubble--assistant" });
@@ -1636,7 +1637,7 @@ var OpencodeRunner = class {
         try {
           this.handleLine(line, cb);
         } catch (e) {
-          console.error("opencode-vault: errore gestendo un evento:", e);
+          console.error("opencode-vault: error handling an event:", e);
         }
       }
     });
@@ -1698,7 +1699,7 @@ var OpencodeRunner = class {
           cb.onStep({
             id: String(part.callID || part.id || "step-" + Date.now()),
             tool: String(part.tool),
-            title: String(((_d = part.state) == null ? void 0 : _d.title) || part.tool || "Strumento"),
+            title: String(((_d = part.state) == null ? void 0 : _d.title) || part.tool || this.plugin.t("Tool")),
             state: String(state),
             input: (_e = part.state) == null ? void 0 : _e.input,
             output: (_f = part.state) == null ? void 0 : _f.output
@@ -1723,7 +1724,7 @@ var OpencodeRunner = class {
   }
   errorMessage(err) {
     var _a;
-    if (!err) return "Errore sconosciuto";
+    if (!err) return this.plugin.t("Unknown error");
     const msg = ((_a = err.data) == null ? void 0 : _a.message) || err.message || JSON.stringify(err);
     return String(msg);
   }
@@ -1795,6 +1796,7 @@ var IT = {
   // --- settings ---
   "Language": "Lingua",
   "Interface language. English is the default. Some command names update after reloading Obsidian.": "Lingua dell'interfaccia. L'inglese \xE8 il default. Alcuni nomi dei comandi si aggiornano dopo il ricaricamento di Obsidian.",
+  "Language changed. Reload Obsidian to apply it everywhere.": "Lingua cambiata. Ricarica Obsidian per applicarla ovunque.",
   "English": "Inglese",
   "Italian": "Italiano",
   "Binary path": "Percorso binario",
@@ -1918,6 +1920,7 @@ var IT = {
   "Continue the work from here, keeping the context above in mind.": "Continua il lavoro da qui, tenendo conto del contesto sopra.",
   "The previous session has no saved history. Continue the work from here.": "La sessione precedente non ha una cronologia salvata. Continua il lavoro da qui.",
   "User": "Utente",
+  "Unknown error": "Errore sconosciuto",
   // --- suggestions ---
   "/model": "/modello",
   "Change the model": "Cambia il modello",

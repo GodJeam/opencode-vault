@@ -895,7 +895,7 @@ const bubble = this.addAssistantMessage();
       const now = Date.now();
       if (now - lastStatusUpdate > 400) {
         lastStatusUpdate = now;
-        bubble.status.setText(`… ${eventCount} this.plugin.t("events")`);
+        bubble.status.setText(`… ${eventCount} ${this.plugin.t("events")}`);
       }
     };
 
@@ -1097,7 +1097,7 @@ private addErrorBubble(msg: string): void {
     this.metaWithCopy(row, this.plugin.t("Opencode"), () => rec.text);
     if (rec.reasoning && rec.reasoning.trim()) {
       const det = row.createEl("details", { cls: "opencode-reasoning" });
-      det.createEl("summary").setText("Ragionamento");
+      det.createEl("summary").setText(this.plugin.t("Reasoning"));
       det.createDiv({ cls: "opencode-reasoning-content", text: rec.reasoning });
     }
     const content = row.createDiv({ cls: "opencode-bubble opencode-bubble--assistant" });
