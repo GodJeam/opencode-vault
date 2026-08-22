@@ -1,7 +1,9 @@
 import { App, DropdownComponent, Notice, PluginSettingTab, Setting } from "obsidian";
 import type OpencodePlugin from "./main";
+import type { Language } from "./i18n";
 
 export interface OpencodeSettings {
+  language: Language;
   binaryPath: string;
   model: string;
   agent: string;
@@ -13,6 +15,7 @@ export interface OpencodeSettings {
 }
 
 export const DEFAULT_SETTINGS: OpencodeSettings = {
+  language: "en",
   binaryPath: "opencode",
   model: "opencode-go/deepseek-v4-flash",
   agent: "",
@@ -33,15 +36,33 @@ export class OpencodeSettingTab extends PluginSettingTab {
 
   display(): void {
     const { containerEl } = this;
+    const t = (s: string) => this.plugin.t(s);
     containerEl.empty();
 
     containerEl.createEl("h2", { text: "Opencode Vault" });
 
     new Setting(containerEl)
-      .setName("Percorso binario opencode")
-      .setDesc(
-        "Comando o percorso completo dell'eseguibile. Di solito basta 'opencode' se è nel PATH. In caso di problemi usa il percorso completo (es. su Windows .../npm/opencode.cmd, su macOS/Linux .../bin/opencode)."
-      )
+      .setName(t("Language"))
+      .setDesc(t(
+        "Interface language. English is the default. Some command names update after reloading Obsidian."
+      ))
+      .addDropdown((dd) =>
+        dd
+          .addOption("en", t("English"))
+          .addOption("it", t("Italian"))
+          .setValue(this.plugin.settings.language)
+          .onChange(async (value) => {
+            this.plugin.settings.language = value as Language;
+            await this.plugin.saveSettings();
+            this.display();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName(t("Binary path"))
+      .setDesc(t(
+        "Command or full path to the opencode executable. Usually 'opencode' is enough if it is on your PATH. If you have issues, use the full path (e.g. on Windows .../npm/opencode.cmd, on macOS/Linux .../bin/opencode)."
+      ))
       .addText((text) =>
         text
           .setPlaceholder("opencode")
@@ -53,30 +74,30 @@ export class OpencodeSettingTab extends PluginSettingTab {
       );
 
     const modelSetting = new Setting(containerEl)
-      .setName("Modello")
-      .setDesc(
-        "Seleziona un modello dalla lista di opencode. Lo stesso selettore è disponibile anche nella barra della chat. Il default usa il provider OpenCode Go (lo stesso dell'app desktop)."
-      );
+      .setName(t("Model"))
+      .setDesc(t(
+        "Pick a model from the opencode list. The same selector is also available in the chat bar. The default uses the OpenCode Go provider (the same as the desktop app)."
+      ));
 
     modelSetting.addDropdown((dd) => {
       this.populateModelDropdown(dd);
     });
 
     new Setting(containerEl)
-      .setName("Aggiorna elenco modelli")
-      .setDesc("Ricarica la lista dei modelli disponibili da opencode.")
+      .setName(t("Refresh model list"))
+      .setDesc(t("Reload the list of available models from opencode."))
       .addButton((btn) =>
-        btn.setButtonText("Aggiorna").onClick(() => {
+        btn.setButtonText(t("Refresh")).onClick(() => {
           this.display();
         })
       );
 
     new Setting(containerEl)
-      .setName("Agent")
-      .setDesc("Agente opencode da usare (es. build, plan). Lascia vuoto per il default.")
+      .setName(t("Agent"))
+      .setDesc(t("The opencode agent to use (e.g. build, plan). Leave empty for the default."))
       .addText((text) =>
         text
-          .setPlaceholder("es. build")
+          .setPlaceholder(t("e.g. build"))
           .setValue(this.plugin.settings.agent)
           .onChange(async (value) => {
             this.plugin.settings.agent = value.trim();
@@ -85,13 +106,13 @@ export class OpencodeSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Session ID")
-      .setDesc(
-        "ID della sessione persistente usata per la chat. Viene gestito automaticamente dal plugin: la prima volta parte una sessione nuova, poi viene riusata. Vuoto = nuova sessione al prossimo messaggio."
-      )
+      .setName(t("Session ID"))
+      .setDesc(t(
+        "The persistent session id used for the chat. It is managed automatically: the first time a new session starts, then it is reused. Empty = new session on the next message."
+      ))
       .addText((text) =>
         text
-          .setPlaceholder("(automatico)")
+          .setPlaceholder(t("(automatic)"))
           .setValue(this.plugin.settings.sessionId)
           .onChange(async (value) => {
             this.plugin.settings.sessionId = value.trim();
@@ -100,21 +121,21 @@ export class OpencodeSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Azzera sessione")
-      .setDesc("Cancella la sessione salvata e riparte da zero al prossimo messaggio.")
+      .setName(t("Reset session"))
+      .setDesc(t("Clear the saved session and start from scratch on the next message."))
       .addButton((btn) =>
-        btn.setButtonText("Azzera").onClick(async () => {
+        btn.setButtonText(t("Reset")).onClick(async () => {
           this.plugin.settings.sessionId = "";
           await this.plugin.saveSettings();
-          new Notice("Sessione azzerata: il prossimo messaggio partirà da una nuova sessione.");
+          new Notice(t("Session reset: the next message will start from a new session."));
         })
       );
 
     new Setting(containerEl)
-      .setName("Auto-approve permessi")
-      .setDesc(
-        "Concede automaticamente i permessi degli strumenti (bash, edit file, ecc.). In modalità non interattiva opencode negherebbe tutto senza questo flag. Disattivalo per maggiore sicurezza."
-      )
+      .setName(t("Auto-approve permissions"))
+      .setDesc(t(
+        "Automatically allow the tool permissions (bash, file edits, etc.). In non-interactive mode opencode would deny everything without this flag. Turn it off for extra safety."
+      ))
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.autoApprove)
@@ -125,8 +146,8 @@ export class OpencodeSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Mostra ragionamento")
-      .setDesc("Mostra i blocchi di reasoning del modello (usa il flag --thinking).")
+      .setName(t("Show reasoning"))
+      .setDesc(t("Show the model's reasoning blocks (uses the --thinking flag)."))
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.showThinking)
@@ -137,10 +158,10 @@ export class OpencodeSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Mostra dettagli degli strumenti")
-      .setDesc(
-        "Mostra input e output di ogni strumento eseguito durante la richiesta, in blocchi apribili con un clic."
-      )
+      .setName(t("Show tool details"))
+      .setDesc(t(
+        "Show the input and output of every tool executed during the request, in collapsible blocks."
+      ))
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.showToolIO)
@@ -151,26 +172,27 @@ export class OpencodeSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Testa connessione")
-      .setDesc("Esegue 'opencode --version' per verificare che il binario sia raggiungibile.")
+      .setName(t("Test connection"))
+      .setDesc(t("Run 'opencode --version' to verify the binary is reachable."))
       .addButton((btn) =>
-        btn.setButtonText("Test").onClick(async () => {
+        btn.setButtonText(t("Test")).onClick(async () => {
           btn.setDisabled(true);
-          btn.setButtonText("Test in corso...");
+          btn.setButtonText(t("Testing..."));
           try {
             const version = await this.plugin.runner.getVersion();
-            new Notice(`Opencode trovato: ${version}`);
+            new Notice(`${t("Opencode found:")} ${version}`);
           } catch (e) {
-            new Notice(`Errore: ${(e as Error).message}`);
+            new Notice(`${t("Error:")} ${(e as Error).message}`);
           } finally {
             btn.setDisabled(false);
-            btn.setButtonText("Test");
+            btn.setButtonText(t("Test"));
           }
         })
       );
   }
 
   private async populateModelDropdown(dd: DropdownComponent): Promise<void> {
+    const t = (s: string) => this.plugin.t(s);
     const cur = this.plugin.settings.model || DEFAULT_SETTINGS.model;
     const seen = new Set<string>();
     const addOption = (value: string, display: string) => {
@@ -178,15 +200,15 @@ export class OpencodeSettingTab extends PluginSettingTab {
       seen.add(value);
       dd.addOption(value, display);
     };
-    addOption("", "(default di opencode)");
-    if (cur) addOption(cur, cur + (cur.includes("/") ? "" : " (personalizzato)"));
+    addOption("", t("(default from opencode)"));
+    if (cur) addOption(cur, cur + (cur.includes("/") ? "" : ` ${t("(custom)")}`));
     dd.setValue(cur || "");
     try {
       const models = await this.plugin.runner.listModels();
       for (const m of models) addOption(m, m);
       dd.setValue(cur || "");
     } catch (e) {
-      addOption("", `Errore: ${(e as Error).message}`);
+      addOption("", `${t("Error:")} ${(e as Error).message}`);
     }
   }
 }

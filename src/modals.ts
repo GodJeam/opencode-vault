@@ -1,10 +1,12 @@
 import { App, Modal, Notice, Setting, SuggestModal } from "obsidian";
 import type { TFile } from "obsidian";
-import type { OpencodeRunner, UsageWindow } from "./opencodeRunner";
+import type OpencodePlugin from "./main";
+import type { UsageWindow } from "./opencodeRunner";
 
 export class RenameModal extends Modal {
   constructor(
     app: App,
+    private plugin: OpencodePlugin,
     private current: string,
     private onSubmit: (title: string) => void
   ) {
@@ -13,30 +15,31 @@ export class RenameModal extends Modal {
 
   onOpen(): void {
     const { contentEl } = this;
+    const t = (s: string) => this.plugin.t(s);
     contentEl.empty();
-    contentEl.createEl("h3", { text: "Rinomina sessione" });
+    contentEl.createEl("h3", { text: t("Rename session") });
 
     let input: HTMLInputElement | undefined;
-    new Setting(contentEl).setName("Nuovo titolo").addText((t) => {
-      input = t.inputEl;
-      t.setValue(this.current);
-      t.inputEl.select();
+    new Setting(contentEl).setName(t("New title")).addText((txt) => {
+      input = txt.inputEl;
+      txt.setValue(this.current);
+      txt.inputEl.select();
     });
 
     new Setting(contentEl)
       .addButton((b) =>
-        b.setButtonText("Salva").setCta().onClick(() => {
+        b.setButtonText(t("Save")).setCta().onClick(() => {
           if (!input) return;
           const v = input.value.trim();
           if (!v) {
-            new Notice("Il titolo non può essere vuoto.");
+            new Notice(t("The title cannot be empty."));
             return;
           }
           this.onSubmit(v);
           this.close();
         })
       )
-      .addButton((b) => b.setButtonText("Annulla").onClick(() => this.close()));
+      .addButton((b) => b.setButtonText(t("Cancel")).onClick(() => this.close()));
   }
 
   onClose(): void {
@@ -45,38 +48,40 @@ export class RenameModal extends Modal {
 }
 
 export class StatsModal extends Modal {
-  constructor(app: App, private runner: OpencodeRunner) {
+  constructor(app: App, private plugin: OpencodePlugin) {
     super(app);
   }
 
   onOpen(): void {
     const { contentEl } = this;
+    const t = (s: string) => this.plugin.t(s);
     contentEl.empty();
-    contentEl.createEl("h3", { text: "Utilizzo token e costi" });
-    const status = contentEl.createDiv({
-      cls: "opencode-stats-loading",
-      text: "Caricamento...",
-    });
+    contentEl.createEl("h3", { text: t("Token usage and costs") });
+    const status = contentEl.createDiv({ cls: "opencode-stats-loading", text: t("Loading...") });
 
-    this.runner
+    this.plugin.runner
       .getUsageStats()
       .then((s) => {
         status.remove();
-        this.renderWindow(contentEl, "Ultime 5 ore", s.h5);
-        this.renderWindow(contentEl, "Ultima settimana", s.week);
-        this.renderWindow(contentEl, "Ultimo mese", s.month);
+        this.renderWindow(contentEl, t("Last 5 hours"), s.h5);
+        this.renderWindow(contentEl, t("Last week"), s.week);
+        this.renderWindow(contentEl, t("Last month"), s.month);
       })
       .catch((e) => {
-        status.setText(`Errore: ${(e as Error).message}`);
+        status.setText(`${t("Error:")} ${(e as Error).message}`);
       });
   }
 
   private renderWindow(container: HTMLElement, label: string, w: UsageWindow): void {
+    const locale = this.plugin.settings.language === "it" ? "it-IT" : "en-US";
+    const t = (s: string) => this.plugin.t(s);
     container.createEl("h4", { text: label });
-    new Setting(container).setName("Token input").setDesc(w.input.toLocaleString("it-IT"));
-    new Setting(container).setName("Token output").setDesc(w.output.toLocaleString("it-IT"));
-    new Setting(container).setName("Totale token").setDesc((w.input + w.output).toLocaleString("it-IT"));
-    new Setting(container).setName("Costo").setDesc(`${w.cost.toFixed(4)} $`);
+    new Setting(container).setName(t("Input tokens")).setDesc(w.input.toLocaleString(locale));
+    new Setting(container).setName(t("Output tokens")).setDesc(w.output.toLocaleString(locale));
+    new Setting(container)
+      .setName(t("Total tokens"))
+      .setDesc((w.input + w.output).toLocaleString(locale));
+    new Setting(container).setName(t("Cost")).setDesc(`${w.cost.toFixed(4)} $`);
   }
 
   onClose(): void {
@@ -87,6 +92,7 @@ export class StatsModal extends Modal {
 export class ConfirmModal extends Modal {
   constructor(
     app: App,
+    private plugin: OpencodePlugin,
     private title: string,
     private message: string,
     private confirmLabel: string,
@@ -97,6 +103,7 @@ export class ConfirmModal extends Modal {
 
   onOpen(): void {
     const { contentEl } = this;
+    const t = (s: string) => this.plugin.t(s);
     contentEl.empty();
     contentEl.createEl("h3", { text: this.title });
     contentEl.createDiv({ cls: "opencode-confirm-message", text: this.message });
@@ -110,7 +117,7 @@ export class ConfirmModal extends Modal {
             this.close();
           })
       )
-      .addButton((b) => b.setButtonText("Annulla").onClick(() => this.close()));
+      .addButton((b) => b.setButtonText(t("Cancel")).onClick(() => this.close()));
   }
 
   onClose(): void {
@@ -119,13 +126,14 @@ export class ConfirmModal extends Modal {
 }
 
 export class FileSuggestModal extends SuggestModal<TFile> {
-  constructor(app: App, private onPick: (file: TFile) => void) {
+  constructor(app: App, private plugin: OpencodePlugin, private onPick: (file: TFile) => void) {
     super(app);
-    this.setPlaceholder("Cerca un file del vault da allegare...");
+    const t = (s: string) => this.plugin.t(s);
+    this.setPlaceholder(t("Search a vault file to attach..."));
     this.setInstructions([
-      { command: "↑↓", purpose: "navigare" },
-      { command: "↵", purpose: "allegare" },
-      { command: "esc", purpose: "chiudere" },
+      { command: "↑↓", purpose: t("navigate") },
+      { command: "↵", purpose: t("attach") },
+      { command: "esc", purpose: t("close") },
     ]);
   }
 
@@ -147,5 +155,3 @@ export class FileSuggestModal extends SuggestModal<TFile> {
     this.onPick(file);
   }
 }
-
-

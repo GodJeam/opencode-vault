@@ -31,6 +31,7 @@ var import_obsidian3 = require("obsidian");
 // src/settings.ts
 var import_obsidian = require("obsidian");
 var DEFAULT_SETTINGS = {
+  language: "en",
   binaryPath: "opencode",
   model: "opencode-go/deepseek-v4-flash",
   agent: "",
@@ -47,87 +48,98 @@ var OpencodeSettingTab = class extends import_obsidian.PluginSettingTab {
   }
   display() {
     const { containerEl } = this;
+    const t = (s) => this.plugin.t(s);
     containerEl.empty();
     containerEl.createEl("h2", { text: "Opencode Vault" });
-    new import_obsidian.Setting(containerEl).setName("Percorso binario opencode").setDesc(
-      "Comando o percorso completo dell'eseguibile. Di solito basta 'opencode' se \xE8 nel PATH. In caso di problemi usa il percorso completo (es. su Windows .../npm/opencode.cmd, su macOS/Linux .../bin/opencode)."
-    ).addText(
+    new import_obsidian.Setting(containerEl).setName(t("Language")).setDesc(t(
+      "Interface language. English is the default. Some command names update after reloading Obsidian."
+    )).addDropdown(
+      (dd) => dd.addOption("en", t("English")).addOption("it", t("Italian")).setValue(this.plugin.settings.language).onChange(async (value) => {
+        this.plugin.settings.language = value;
+        await this.plugin.saveSettings();
+        this.display();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName(t("Binary path")).setDesc(t(
+      "Command or full path to the opencode executable. Usually 'opencode' is enough if it is on your PATH. If you have issues, use the full path (e.g. on Windows .../npm/opencode.cmd, on macOS/Linux .../bin/opencode)."
+    )).addText(
       (text) => text.setPlaceholder("opencode").setValue(this.plugin.settings.binaryPath).onChange(async (value) => {
         this.plugin.settings.binaryPath = value.trim() || "opencode";
         await this.plugin.saveSettings();
       })
     );
-    const modelSetting = new import_obsidian.Setting(containerEl).setName("Modello").setDesc(
-      "Seleziona un modello dalla lista di opencode. Lo stesso selettore \xE8 disponibile anche nella barra della chat. Il default usa il provider OpenCode Go (lo stesso dell'app desktop)."
-    );
+    const modelSetting = new import_obsidian.Setting(containerEl).setName(t("Model")).setDesc(t(
+      "Pick a model from the opencode list. The same selector is also available in the chat bar. The default uses the OpenCode Go provider (the same as the desktop app)."
+    ));
     modelSetting.addDropdown((dd) => {
       this.populateModelDropdown(dd);
     });
-    new import_obsidian.Setting(containerEl).setName("Aggiorna elenco modelli").setDesc("Ricarica la lista dei modelli disponibili da opencode.").addButton(
-      (btn) => btn.setButtonText("Aggiorna").onClick(() => {
+    new import_obsidian.Setting(containerEl).setName(t("Refresh model list")).setDesc(t("Reload the list of available models from opencode.")).addButton(
+      (btn) => btn.setButtonText(t("Refresh")).onClick(() => {
         this.display();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Agent").setDesc("Agente opencode da usare (es. build, plan). Lascia vuoto per il default.").addText(
-      (text) => text.setPlaceholder("es. build").setValue(this.plugin.settings.agent).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName(t("Agent")).setDesc(t("The opencode agent to use (e.g. build, plan). Leave empty for the default.")).addText(
+      (text) => text.setPlaceholder(t("e.g. build")).setValue(this.plugin.settings.agent).onChange(async (value) => {
         this.plugin.settings.agent = value.trim();
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Session ID").setDesc(
-      "ID della sessione persistente usata per la chat. Viene gestito automaticamente dal plugin: la prima volta parte una sessione nuova, poi viene riusata. Vuoto = nuova sessione al prossimo messaggio."
-    ).addText(
-      (text) => text.setPlaceholder("(automatico)").setValue(this.plugin.settings.sessionId).onChange(async (value) => {
+    new import_obsidian.Setting(containerEl).setName(t("Session ID")).setDesc(t(
+      "The persistent session id used for the chat. It is managed automatically: the first time a new session starts, then it is reused. Empty = new session on the next message."
+    )).addText(
+      (text) => text.setPlaceholder(t("(automatic)")).setValue(this.plugin.settings.sessionId).onChange(async (value) => {
         this.plugin.settings.sessionId = value.trim();
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Azzera sessione").setDesc("Cancella la sessione salvata e riparte da zero al prossimo messaggio.").addButton(
-      (btn) => btn.setButtonText("Azzera").onClick(async () => {
+    new import_obsidian.Setting(containerEl).setName(t("Reset session")).setDesc(t("Clear the saved session and start from scratch on the next message.")).addButton(
+      (btn) => btn.setButtonText(t("Reset")).onClick(async () => {
         this.plugin.settings.sessionId = "";
         await this.plugin.saveSettings();
-        new import_obsidian.Notice("Sessione azzerata: il prossimo messaggio partir\xE0 da una nuova sessione.");
+        new import_obsidian.Notice(t("Session reset: the next message will start from a new session."));
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Auto-approve permessi").setDesc(
-      "Concede automaticamente i permessi degli strumenti (bash, edit file, ecc.). In modalit\xE0 non interattiva opencode negherebbe tutto senza questo flag. Disattivalo per maggiore sicurezza."
-    ).addToggle(
+    new import_obsidian.Setting(containerEl).setName(t("Auto-approve permissions")).setDesc(t(
+      "Automatically allow the tool permissions (bash, file edits, etc.). In non-interactive mode opencode would deny everything without this flag. Turn it off for extra safety."
+    )).addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.autoApprove).onChange(async (value) => {
         this.plugin.settings.autoApprove = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Mostra ragionamento").setDesc("Mostra i blocchi di reasoning del modello (usa il flag --thinking).").addToggle(
+    new import_obsidian.Setting(containerEl).setName(t("Show reasoning")).setDesc(t("Show the model's reasoning blocks (uses the --thinking flag).")).addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.showThinking).onChange(async (value) => {
         this.plugin.settings.showThinking = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Mostra dettagli degli strumenti").setDesc(
-      "Mostra input e output di ogni strumento eseguito durante la richiesta, in blocchi apribili con un clic."
-    ).addToggle(
+    new import_obsidian.Setting(containerEl).setName(t("Show tool details")).setDesc(t(
+      "Show the input and output of every tool executed during the request, in collapsible blocks."
+    )).addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.showToolIO).onChange(async (value) => {
         this.plugin.settings.showToolIO = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName("Testa connessione").setDesc("Esegue 'opencode --version' per verificare che il binario sia raggiungibile.").addButton(
-      (btn) => btn.setButtonText("Test").onClick(async () => {
+    new import_obsidian.Setting(containerEl).setName(t("Test connection")).setDesc(t("Run 'opencode --version' to verify the binary is reachable.")).addButton(
+      (btn) => btn.setButtonText(t("Test")).onClick(async () => {
         btn.setDisabled(true);
-        btn.setButtonText("Test in corso...");
+        btn.setButtonText(t("Testing..."));
         try {
           const version = await this.plugin.runner.getVersion();
-          new import_obsidian.Notice(`Opencode trovato: ${version}`);
+          new import_obsidian.Notice(`${t("Opencode found:")} ${version}`);
         } catch (e) {
-          new import_obsidian.Notice(`Errore: ${e.message}`);
+          new import_obsidian.Notice(`${t("Error:")} ${e.message}`);
         } finally {
           btn.setDisabled(false);
-          btn.setButtonText("Test");
+          btn.setButtonText(t("Test"));
         }
       })
     );
   }
   async populateModelDropdown(dd) {
+    const t = (s) => this.plugin.t(s);
     const cur = this.plugin.settings.model || DEFAULT_SETTINGS.model;
     const seen = /* @__PURE__ */ new Set();
     const addOption = (value, display) => {
@@ -135,15 +147,15 @@ var OpencodeSettingTab = class extends import_obsidian.PluginSettingTab {
       seen.add(value);
       dd.addOption(value, display);
     };
-    addOption("", "(default di opencode)");
-    if (cur) addOption(cur, cur + (cur.includes("/") ? "" : " (personalizzato)"));
+    addOption("", t("(default from opencode)"));
+    if (cur) addOption(cur, cur + (cur.includes("/") ? "" : ` ${t("(custom)")}`));
     dd.setValue(cur || "");
     try {
       const models = await this.plugin.runner.listModels();
       for (const m of models) addOption(m, m);
       dd.setValue(cur || "");
     } catch (e) {
-      addOption("", `Errore: ${e.message}`);
+      addOption("", `${t("Error:")} ${e.message}`);
     }
   }
 };
@@ -151,74 +163,77 @@ var OpencodeSettingTab = class extends import_obsidian.PluginSettingTab {
 // src/modals.ts
 var import_obsidian2 = require("obsidian");
 var RenameModal = class extends import_obsidian2.Modal {
-  constructor(app, current, onSubmit) {
+  constructor(app, plugin, current, onSubmit) {
     super(app);
+    this.plugin = plugin;
     this.current = current;
     this.onSubmit = onSubmit;
   }
   onOpen() {
     const { contentEl } = this;
+    const t = (s) => this.plugin.t(s);
     contentEl.empty();
-    contentEl.createEl("h3", { text: "Rinomina sessione" });
+    contentEl.createEl("h3", { text: t("Rename session") });
     let input;
-    new import_obsidian2.Setting(contentEl).setName("Nuovo titolo").addText((t) => {
-      input = t.inputEl;
-      t.setValue(this.current);
-      t.inputEl.select();
+    new import_obsidian2.Setting(contentEl).setName(t("New title")).addText((txt) => {
+      input = txt.inputEl;
+      txt.setValue(this.current);
+      txt.inputEl.select();
     });
     new import_obsidian2.Setting(contentEl).addButton(
-      (b) => b.setButtonText("Salva").setCta().onClick(() => {
+      (b) => b.setButtonText(t("Save")).setCta().onClick(() => {
         if (!input) return;
         const v = input.value.trim();
         if (!v) {
-          new import_obsidian2.Notice("Il titolo non pu\xF2 essere vuoto.");
+          new import_obsidian2.Notice(t("The title cannot be empty."));
           return;
         }
         this.onSubmit(v);
         this.close();
       })
-    ).addButton((b) => b.setButtonText("Annulla").onClick(() => this.close()));
+    ).addButton((b) => b.setButtonText(t("Cancel")).onClick(() => this.close()));
   }
   onClose() {
     this.contentEl.empty();
   }
 };
 var StatsModal = class extends import_obsidian2.Modal {
-  constructor(app, runner) {
+  constructor(app, plugin) {
     super(app);
-    this.runner = runner;
+    this.plugin = plugin;
   }
   onOpen() {
     const { contentEl } = this;
+    const t = (s) => this.plugin.t(s);
     contentEl.empty();
-    contentEl.createEl("h3", { text: "Utilizzo token e costi" });
-    const status = contentEl.createDiv({
-      cls: "opencode-stats-loading",
-      text: "Caricamento..."
-    });
-    this.runner.getUsageStats().then((s) => {
+    contentEl.createEl("h3", { text: t("Token usage and costs") });
+    const status = contentEl.createDiv({ cls: "opencode-stats-loading", text: t("Loading...") });
+    this.plugin.runner.getUsageStats().then((s) => {
       status.remove();
-      this.renderWindow(contentEl, "Ultime 5 ore", s.h5);
-      this.renderWindow(contentEl, "Ultima settimana", s.week);
-      this.renderWindow(contentEl, "Ultimo mese", s.month);
+      this.renderWindow(contentEl, t("Last 5 hours"), s.h5);
+      this.renderWindow(contentEl, t("Last week"), s.week);
+      this.renderWindow(contentEl, t("Last month"), s.month);
     }).catch((e) => {
-      status.setText(`Errore: ${e.message}`);
+      status.setText(`${t("Error:")} ${e.message}`);
     });
   }
   renderWindow(container, label, w) {
+    const locale = this.plugin.settings.language === "it" ? "it-IT" : "en-US";
+    const t = (s) => this.plugin.t(s);
     container.createEl("h4", { text: label });
-    new import_obsidian2.Setting(container).setName("Token input").setDesc(w.input.toLocaleString("it-IT"));
-    new import_obsidian2.Setting(container).setName("Token output").setDesc(w.output.toLocaleString("it-IT"));
-    new import_obsidian2.Setting(container).setName("Totale token").setDesc((w.input + w.output).toLocaleString("it-IT"));
-    new import_obsidian2.Setting(container).setName("Costo").setDesc(`${w.cost.toFixed(4)} $`);
+    new import_obsidian2.Setting(container).setName(t("Input tokens")).setDesc(w.input.toLocaleString(locale));
+    new import_obsidian2.Setting(container).setName(t("Output tokens")).setDesc(w.output.toLocaleString(locale));
+    new import_obsidian2.Setting(container).setName(t("Total tokens")).setDesc((w.input + w.output).toLocaleString(locale));
+    new import_obsidian2.Setting(container).setName(t("Cost")).setDesc(`${w.cost.toFixed(4)} $`);
   }
   onClose() {
     this.contentEl.empty();
   }
 };
 var ConfirmModal = class extends import_obsidian2.Modal {
-  constructor(app, title, message, confirmLabel, onConfirm) {
+  constructor(app, plugin, title, message, confirmLabel, onConfirm) {
     super(app);
+    this.plugin = plugin;
     this.title = title;
     this.message = message;
     this.confirmLabel = confirmLabel;
@@ -226,6 +241,7 @@ var ConfirmModal = class extends import_obsidian2.Modal {
   }
   onOpen() {
     const { contentEl } = this;
+    const t = (s) => this.plugin.t(s);
     contentEl.empty();
     contentEl.createEl("h3", { text: this.title });
     contentEl.createDiv({ cls: "opencode-confirm-message", text: this.message });
@@ -234,21 +250,23 @@ var ConfirmModal = class extends import_obsidian2.Modal {
         this.onConfirm();
         this.close();
       })
-    ).addButton((b) => b.setButtonText("Annulla").onClick(() => this.close()));
+    ).addButton((b) => b.setButtonText(t("Cancel")).onClick(() => this.close()));
   }
   onClose() {
     this.contentEl.empty();
   }
 };
 var FileSuggestModal = class extends import_obsidian2.SuggestModal {
-  constructor(app, onPick) {
+  constructor(app, plugin, onPick) {
     super(app);
+    this.plugin = plugin;
     this.onPick = onPick;
-    this.setPlaceholder("Cerca un file del vault da allegare...");
+    const t = (s) => this.plugin.t(s);
+    this.setPlaceholder(t("Search a vault file to attach..."));
     this.setInstructions([
-      { command: "\u2191\u2193", purpose: "navigare" },
-      { command: "\u21B5", purpose: "allegare" },
-      { command: "esc", purpose: "chiudere" }
+      { command: "\u2191\u2193", purpose: t("navigate") },
+      { command: "\u21B5", purpose: t("attach") },
+      { command: "esc", purpose: t("close") }
     ]);
   }
   getItems() {
@@ -335,7 +353,7 @@ var ChatView = class extends import_obsidian3.ItemView {
     this.contextLabelEl = this.contextBar.createSpan({ cls: "opencode-context-label" });
     this.contextClearBtn = this.contextBar.createEl("button", {
       cls: "opencode-icon-btn hidden",
-      attr: { title: "Rimuovi il contesto allegato" }
+      attr: { title: this.plugin.t("Remove the attached context") }
     });
     (0, import_obsidian3.setIcon)(this.contextClearBtn, "x");
     this.contextClearBtn.addEventListener("click", () => {
@@ -359,33 +377,33 @@ var ChatView = class extends import_obsidian3.ItemView {
     void this.populateSessionSelect();
     this.pinBtn = this.contextBar.createEl("button", {
       cls: "opencode-icon-btn",
-      attr: { title: "Pina/Spilla la sessione" }
+      attr: { title: this.plugin.t("Pin/Unpin session") }
     });
     (0, import_obsidian3.setIcon)(this.pinBtn, "pin");
     this.pinBtn.addEventListener("click", () => this.togglePin());
     this.renameBtn = this.contextBar.createEl("button", {
       cls: "opencode-icon-btn",
-      attr: { title: "Rinomina sessione" }
+      attr: { title: this.plugin.t("Rename session") }
     });
     (0, import_obsidian3.setIcon)(this.renameBtn, "pencil");
     this.renameBtn.addEventListener("click", () => this.renameCurrentSession());
     this.deleteBtn = this.contextBar.createEl("button", {
       cls: "opencode-icon-btn",
-      attr: { title: "Elimina sessione" }
+      attr: { title: this.plugin.t("Delete session") }
     });
     (0, import_obsidian3.setIcon)(this.deleteBtn, "trash");
     this.deleteBtn.addEventListener("click", () => this.deleteCurrentSession());
     const statsBtn = this.contextBar.createEl("button", {
       cls: "opencode-icon-btn",
-      attr: { title: "Statistiche token e costi" }
+      attr: { title: this.plugin.t("Token and cost statistics") }
     });
     (0, import_obsidian3.setIcon)(statsBtn, "bar-chart-3");
-    statsBtn.addEventListener("click", () => new StatsModal(this.app, this.plugin.runner).open());
+    statsBtn.addEventListener("click", () => new StatsModal(this.app, this.plugin).open());
     const attachBtn = this.contextBar.createEl("button", { cls: "opencode-add-note-btn" });
-    attachBtn.setText("\uFF0B Allega file");
+    attachBtn.setText("\uFF0B " + this.plugin.t("Attach file"));
     attachBtn.addEventListener("click", () => this.openFilePicker());
     const add = this.contextBar.createEl("button", { cls: "opencode-add-note-btn" });
-    add.setText("+ Nota corrente");
+    add.setText("+ " + this.plugin.t("Current note"));
     add.addEventListener("click", () => this.attachCurrentNote());
     this.updateContextBar();
   }
@@ -415,7 +433,7 @@ var ChatView = class extends import_obsidian3.ItemView {
     }
   }
   openFilePicker() {
-    new FileSuggestModal(this.app, (file) => this.addAttachment(file.path)).open();
+    new FileSuggestModal(this.app, this.plugin, (file) => this.addAttachment(file.path)).open();
   }
   addAttachment(path) {
     if (this.attachments.some((a) => a.path === path)) return;
@@ -424,7 +442,7 @@ var ChatView = class extends import_obsidian3.ItemView {
     this.updateAttachmentsBar();
     if (isImage) {
       new import_obsidian3.Notice(
-        "Immagine allegata: verifica che il modello selezionato supporti le immagini (vision)."
+        this.plugin.t("Image attached: check that the selected model supports images (vision).")
       );
     }
   }
@@ -432,7 +450,7 @@ var ChatView = class extends import_obsidian3.ItemView {
     var _a;
     const id = this.viewSession;
     if (!id) {
-      new import_obsidian3.Notice("Seleziona una sessione da pinnare.");
+      new import_obsidian3.Notice(this.plugin.t("Select a session to pin."));
       return;
     }
     const pinned = (_a = this.plugin.settings.pinned) != null ? _a : [];
@@ -442,36 +460,37 @@ var ChatView = class extends import_obsidian3.ItemView {
     this.plugin.settings.pinned = pinned;
     void this.plugin.saveSettings();
     void this.populateSessionSelect();
-    new import_obsidian3.Notice(idx >= 0 ? "Sessione rimossa dai pinnati." : "Sessione pinnata.");
+    new import_obsidian3.Notice(idx >= 0 ? this.plugin.t("Session unpinned.") : this.plugin.t("Session pinned."));
   }
   renameCurrentSession() {
     var _a, _b;
     const id = this.viewSession;
     if (!id) {
-      new import_obsidian3.Notice("Seleziona una sessione da rinominare.");
+      new import_obsidian3.Notice(this.plugin.t("Select a session to rename."));
       return;
     }
     const current = (_b = (_a = this.sessionSelect.selectedOptions[0]) == null ? void 0 : _a.textContent) != null ? _b : id;
-    new RenameModal(this.app, current, (newTitle) => {
+    new RenameModal(this.app, this.plugin, current, (newTitle) => {
       this.plugin.runner.renameSession(id, newTitle).then(() => {
         void this.populateSessionSelect();
-        new import_obsidian3.Notice("Sessione rinominata.");
-      }).catch((e) => new import_obsidian3.Notice(`Errore: ${e.message}`));
+        new import_obsidian3.Notice(this.plugin.t("Session renamed."));
+      }).catch((e) => new import_obsidian3.Notice(`${this.plugin.t("Error:")} ${e.message}`));
     }).open();
   }
   deleteCurrentSession() {
     var _a, _b;
     const id = this.viewSession;
     if (!id) {
-      new import_obsidian3.Notice("Seleziona una sessione da eliminare.");
+      new import_obsidian3.Notice(this.plugin.t("Select a session to delete."));
       return;
     }
     const title = (_b = (_a = this.sessionSelect.selectedOptions[0]) == null ? void 0 : _a.textContent) != null ? _b : id;
     new ConfirmModal(
       this.app,
-      "Elimina sessione",
-      `Vuoi eliminare la sessione "${title}"? Verr\xE0 rimossa anche la cronologia salvata in Obsidian.`,
-      "Elimina",
+      this.plugin,
+      this.plugin.t("Delete session"),
+      this.plugin.t('Do you want to delete the session "$1"? The history saved in Obsidian will also be removed.').replace("$1", title),
+      this.plugin.t("Delete"),
       () => {
         this.plugin.runner.deleteSession(id).then(async () => {
           var _a2;
@@ -485,14 +504,14 @@ var ChatView = class extends import_obsidian3.ItemView {
           await this.plugin.saveSettings();
           await this.populateSessionSelect();
           this.loadHistoryForSession(this.viewSession);
-          new import_obsidian3.Notice("Sessione eliminata.");
-        }).catch((e) => new import_obsidian3.Notice(`Errore: ${e.message}`));
+          new import_obsidian3.Notice(this.plugin.t("Session deleted."));
+        }).catch((e) => new import_obsidian3.Notice(`${this.plugin.t("Error:")} ${e.message}`));
       }
     ).open();
   }
   updateContextBar() {
     if (this.context) {
-      this.contextLabelEl.setText(`Contesto: ${this.context.label}`);
+      this.contextLabelEl.setText(`${this.plugin.t("Context:")} ${this.context.label}`);
       this.contextLabelEl.show();
       this.contextClearBtn.removeClass("hidden");
     } else {
@@ -507,7 +526,7 @@ var ChatView = class extends import_obsidian3.ItemView {
     sel.empty();
     const newOpt = sel.createEl("option");
     newOpt.value = "";
-    newOpt.textContent = "\uFF0B Nuova sessione";
+    newOpt.textContent = "\uFF0B " + this.plugin.t("New session");
     try {
       const sessions = await this.plugin.runner.listSessions();
       sessions.sort((a, b) => {
@@ -547,7 +566,7 @@ var ChatView = class extends import_obsidian3.ItemView {
     if (!this.statsBar) return;
     this.statsBar.empty();
     this.statsBar.createSpan({
-      text: `Token: ${this.stats.total.toLocaleString("it-IT")} (in ${this.stats.input.toLocaleString("it-IT")} \xB7 out ${this.stats.output.toLocaleString("it-IT")}) \xB7 Costo: ${this.stats.cost.toFixed(4)} $`,
+      text: this.fmtTokens(this.stats.total, this.stats.input, this.stats.output, this.stats.cost),
       cls: "opencode-stats-text"
     });
   }
@@ -568,13 +587,13 @@ var ChatView = class extends import_obsidian3.ItemView {
   async attachCurrentNote() {
     const file = this.app.workspace.getActiveFile();
     if (!file) {
-      new import_obsidian3.Notice("Nessuna nota attiva");
+      new import_obsidian3.Notice(this.plugin.t("No active note"));
       return;
     }
     const content = await this.app.vault.cachedRead(file);
     this.context = { label: file.path, content };
     this.updateContextBar();
-    new import_obsidian3.Notice("Nota aggiunta al contesto");
+    new import_obsidian3.Notice(this.plugin.t("Note added to context."));
   }
   buildInputArea(container) {
     const inputArea = container.createDiv({ cls: "opencode-input-area" });
@@ -582,7 +601,7 @@ var ChatView = class extends import_obsidian3.ItemView {
     this.inputEl = inputArea.createEl("textarea", {
       cls: "opencode-input",
       attr: {
-        placeholder: "Scrivi un messaggio per opencode... (Invio per inviare, Shift+Invio per andare a capo)"
+        placeholder: this.plugin.t("Type a message for opencode... (Enter to send, Shift+Enter for a new line)")
       }
     });
     this.inputEl.addEventListener("keydown", (e) => this.onInputKeydown(e));
@@ -593,10 +612,10 @@ var ChatView = class extends import_obsidian3.ItemView {
     this.modelBtn.addEventListener("click", () => this.openModelList());
     buttons.createSpan({ cls: "opencode-buttons-spacer" });
     this.sendBtn = buttons.createEl("button", { cls: "opencode-send-btn" });
-    this.sendBtn.setText("Invia");
+    this.sendBtn.setText(this.plugin.t("Send"));
     this.sendBtn.addEventListener("click", () => this.send());
     this.stopBtn = buttons.createEl("button", { cls: "opencode-stop-btn" });
-    this.stopBtn.setText("Stop");
+    this.stopBtn.setText(this.plugin.t("Stop"));
     this.stopBtn.addClass("hidden");
     this.stopBtn.addEventListener("click", () => {
       var _a;
@@ -615,14 +634,14 @@ var ChatView = class extends import_obsidian3.ItemView {
       this.suggestTrigger = null;
       this.suggestItems = models.map((m) => ({
         label: m === cur ? `${m}  \u2713` : m,
-        desc: m === cur ? "modello attivo" : void 0,
+        desc: m === cur ? this.plugin.t("active model") : void 0,
         action: () => {
           this.plugin.settings.model = m;
           void this.plugin.saveSettings();
           this.updateModelBtn();
           this.closeSuggest();
           this.inputEl.focus();
-          new import_obsidian3.Notice(`Modello impostato: ${m}`);
+          new import_obsidian3.Notice(`${this.plugin.t("Model set:")} ${m}`);
         }
       }));
       this.suggestIndex = Math.max(0, this.suggestItems.findIndex((x) => x.label.startsWith(cur)));
@@ -630,7 +649,7 @@ var ChatView = class extends import_obsidian3.ItemView {
       this.renderSuggest();
       this.inputEl.focus();
     };
-    this.plugin.runner.listModels().then(open).catch((e) => new import_obsidian3.Notice(`Errore: ${e.message}`));
+    this.plugin.runner.listModels().then(open).catch((e) => new import_obsidian3.Notice(`${this.plugin.t("Error:")} ${e.message}`));
   }
   startNewSession() {
     this.viewSession = "";
@@ -638,26 +657,26 @@ var ChatView = class extends import_obsidian3.ItemView {
     void this.plugin.saveSettings();
     void this.populateSessionSelect();
     this.loadHistoryForSession("");
-    new import_obsidian3.Notice("Nuova sessione: il prossimo messaggio partir\xE0 da zero.");
+    new import_obsidian3.Notice(this.plugin.t("New session: the next message will start from scratch."));
   }
   continueInNewSession() {
     if (this.running) {
-      new import_obsidian3.Notice("C'\xE8 gi\xE0 una richiesta in corso.");
+      new import_obsidian3.Notice(this.plugin.t("There is already a request in progress."));
       return;
     }
     const oldSession = this.viewSession;
     if (!oldSession) {
-      new import_obsidian3.Notice("Seleziona prima la sessione da riassumere.");
+      new import_obsidian3.Notice(this.plugin.t("Select first the session to summarize."));
       return;
     }
     const bubble = this.addAssistantMessage();
-    bubble.status.setText("Generazione riassunto della sessione...");
+    bubble.status.setText(this.plugin.t("Generating session summary..."));
     this.running = true;
     this.hadStreamError = false;
     this.stoppedByUser = false;
     this.lastStderr = "";
     this.setRunningUI(true);
-    const summaryPrompt = "Riassumi in modo dettagliato questa conversazione: obiettivi, decisioni prese, lavoro svolto, stato attuale e prossimi passi. Scrivi il riassunto in modo che si possa continuare il lavoro in una nuova sessione senza perdere il contesto.";
+    const summaryPrompt = this.plugin.t("Summarize in detail this conversation: goals, decisions made, work done, current state and next steps. Write the summary so the work can continue in a new session without losing context.");
     const proc = this.plugin.runner.runStream(summaryPrompt, [], {
       onSession: () => {
       },
@@ -697,20 +716,15 @@ var ChatView = class extends import_obsidian3.ItemView {
           }
           this.finishContinuation(
             this.buildLocalContinuation(oldSession),
-            "Sessione al limite: nuova sessione creata con la cronologia recente."
+            this.plugin.t("Session at the limit: new session created with the recent history.")
           );
           return;
         }
         const summary = bubble.getSnapshot().text.trim();
-        const prompt = summary ? `[RIASSUNTO DELLA SESSIONE PRECEDENTE]
-${summary}
-
----
-
-Continua il lavoro da qui.` : "Continua il lavoro dalla sessione precedente.";
+        const prompt = summary ? this.plugin.t("[SUMMARY OF THE PREVIOUS SESSION]") + "\n" + summary + "\n\n---\n\n" + this.plugin.t("Continue the work from here.") : this.plugin.t("Continue the work from the previous session.");
         this.finishContinuation(
           prompt,
-          "Nuova sessione creata con il riassunto della precedente."
+          this.plugin.t("New session created with the summary of the previous one.")
         );
       }
     });
@@ -730,24 +744,19 @@ Continua il lavoro da qui.` : "Continua il lavoro dalla sessione precedente.";
     const history = this.plugin.getHistory(sessionId);
     const recent = history.slice(-24);
     if (recent.length === 0) {
-      return "La sessione precedente non ha una cronologia salvata. Continua il lavoro da qui.";
+      return this.plugin.t("The previous session has no saved history. Continue the work from here.");
     }
     const lines = [];
     for (const rec of recent) {
-      const who = rec.role === "user" ? "Utente" : "Opencode";
+      const who = rec.role === "user" ? this.plugin.t("User") : "Opencode";
       const text = rec.text.length > 800 ? rec.text.slice(0, 800) + "\u2B26" : rec.text;
       lines.push(`${who}: ${text}`);
     }
-    return `[CRONOLOGIA RECENTE DELLA SESSIONE PRECEDENTE]
-${lines.join(
+    return this.plugin.t("[RECENT HISTORY OF THE PREVIOUS SESSION]") + "\n" + lines.join(
       "\n\n"
-    )}
-
----
-
-Continua il lavoro da qui, tenendo conto del contesto sopra.`;
+    ) + "\n\n---\n\n" + this.plugin.t("Continue the work from here, keeping the context above in mind.");
   }
-  // ===== Comandi / @ ! =====
+  // ===== Commands / @ ! =====
   onInputKeydown(e) {
     if (this.suggestOpen) {
       if (e.key === "ArrowDown") {
@@ -828,32 +837,32 @@ Continua il lavoro da qui, tenendo conto del contesto sopra.`;
   commandItems() {
     return [
       {
-        label: "/modello",
-        desc: "Cambia il modello",
+        label: this.plugin.t("/model"),
+        desc: this.plugin.t("Change the model"),
         action: () => {
           this.removeTrigger();
           this.openModelList();
         }
       },
       {
-        label: "/nuova",
-        desc: "Nuova sessione",
+        label: this.plugin.t("/new"),
+        desc: this.plugin.t("New session"),
         action: () => {
           this.removeTrigger();
           this.startNewSession();
         }
       },
       {
-        label: "/nota",
-        desc: "Allega la nota corrente",
+        label: this.plugin.t("/note"),
+        desc: this.plugin.t("Attach the current note"),
         action: () => {
           this.removeTrigger();
           void this.attachCurrentNote();
         }
       },
       {
-        label: "/allega",
-        desc: "Allega un file",
+        label: this.plugin.t("/attach"),
+        desc: this.plugin.t("Attach a file"),
         action: () => {
           this.removeTrigger();
           this.openFilePicker();
@@ -861,23 +870,23 @@ Continua il lavoro da qui, tenendo conto del contesto sopra.`;
       },
       {
         label: "/stats",
-        desc: "Statistiche token e costi",
+        desc: this.plugin.t("Token and cost statistics"),
         action: () => {
           this.removeTrigger();
-          new StatsModal(this.app, this.plugin.runner).open();
+          new StatsModal(this.app, this.plugin).open();
         }
       },
       {
         label: "/pin",
-        desc: "Pina/Spilla la sessione",
+        desc: this.plugin.t("Pin/Unpin session"),
         action: () => {
           this.removeTrigger();
           this.togglePin();
         }
       },
       {
-        label: "/rinomina",
-        desc: "Rinomina la sessione",
+        label: this.plugin.t("/rename"),
+        desc: this.plugin.t("Rename session"),
         action: () => {
           this.removeTrigger();
           this.renameCurrentSession();
@@ -891,7 +900,7 @@ Continua il lavoro da qui, tenendo conto del contesto sopra.`;
     }
     return this.vaultPaths.map((p) => ({
       label: p,
-      desc: "Allegato",
+      desc: this.plugin.t("Attached"),
       action: () => {
         this.removeTrigger();
         this.addAttachment(p);
@@ -901,40 +910,40 @@ Continua il lavoro da qui, tenendo conto del contesto sopra.`;
   actionItems() {
     return [
       {
-        label: "nota corrente",
-        desc: "Allega la nota aperta come contesto",
+        label: this.plugin.t("current note"),
+        desc: this.plugin.t("Attach the open note as context"),
         action: () => {
           this.removeTrigger();
           void this.attachCurrentNote();
         }
       },
       {
-        label: "allega file",
-        desc: "Scegli un file da allegare",
+        label: this.plugin.t("attach file"),
+        desc: this.plugin.t("Pick a file to attach"),
         action: () => {
           this.removeTrigger();
           this.openFilePicker();
         }
       },
       {
-        label: "nuova sessione",
-        desc: "Parti da una sessione vuota",
+        label: this.plugin.t("new session"),
+        desc: this.plugin.t("Start from an empty session"),
         action: () => {
           this.removeTrigger();
           this.startNewSession();
         }
       },
       {
-        label: "statistiche",
-        desc: "Token e costi (5h, settimana, mese)",
+        label: this.plugin.t("statistics"),
+        desc: this.plugin.t("Tokens and costs (5h, week, month)"),
         action: () => {
           this.removeTrigger();
-          new StatsModal(this.app, this.plugin.runner).open();
+          new StatsModal(this.app, this.plugin).open();
         }
       },
       {
-        label: "pina/spilla sessione",
-        desc: "Fissa la sessione nella lista",
+        label: this.plugin.t("pin/unpin session"),
+        desc: this.plugin.t("Pin the session in the list"),
         action: () => {
           this.removeTrigger();
           this.togglePin();
@@ -989,7 +998,7 @@ Continua il lavoro da qui, tenendo conto del contesto sopra.`;
     const row = this.messagesEl.createDiv({
       cls: "opencode-message opencode-message--assistant"
     });
-    const text = "Ciao! Sono il plugin che collega il tuo vault a opencode. Scrivi un messaggio qui sotto. Prova i comandi: / per i comandi, @ per allegare un file, ! per le azioni rapide.";
+    const text = this.plugin.t("Hi! I am the plugin that connects your vault to opencode. Write a message below. Try the commands: / for commands, @ to attach a file, ! for quick actions.");
     this.metaWithCopy(row, "Opencode", () => text);
     row.createDiv({ text, cls: "opencode-bubble" });
   }
@@ -1000,7 +1009,7 @@ Continua il lavoro da qui, tenendo conto del contesto sopra.`;
     let prompt = raw;
     const ctxLabel = (_a = this.context) == null ? void 0 : _a.label;
     if (this.context) {
-      prompt = `[CONTESTO DA OBSIDIAN - ${this.context.label}]
+      prompt = `[CONTEXT FROM OBSIDIAN - ${this.context.label}]
 ${this.context.content}
 
 ---
@@ -1036,13 +1045,13 @@ ${this.context.content}
     if (/does not support image input|image input is not supported|images? are not supported/i.test(
       msg
     )) {
-      return "Il modello selezionato non supporta le immagini. Rimuovi l'allegato immagine oppure scegli un modello multimodale (con supporto vision) dal menu Modello.";
+      return this.plugin.t("The selected model does not support images. Remove the attached image or choose a multimodal (vision) model from the Model menu.");
     }
     return msg;
   }
   doRun(prompt, filePaths = []) {
     const bubble = this.addAssistantMessage();
-    bubble.status.setText("In avvio...");
+    bubble.status.setText(this.plugin.t("Starting..."));
     this.running = true;
     this.hadStreamError = false;
     this.stoppedByUser = false;
@@ -1055,7 +1064,7 @@ ${this.context.content}
       const now = Date.now();
       if (now - lastStatusUpdate > 400) {
         lastStatusUpdate = now;
-        bubble.status.setText(`\u2026 ${eventCount} eventi`);
+        bubble.status.setText(`\u2026 ${eventCount} this.plugin.t("events")`);
       }
     };
     const proc = this.plugin.runner.runStream(prompt, filePaths, {
@@ -1108,7 +1117,7 @@ ${this.context.content}
           this.plugin.settings.sessionId = "";
           void this.plugin.saveSettings();
           this.addErrorBubble(
-            "La sessione salvata non esiste pi\xF9: ne verr\xE0 creata una nuova, rispedisci il messaggio."
+            this.plugin.t("The saved session no longer exists: a new one will be created, resend the message.")
           );
         } else {
           this.addErrorBubble(this.friendlyError(msg));
@@ -1135,13 +1144,13 @@ ${this.context.content}
             this.plugin.settings.sessionId = "";
             void this.plugin.saveSettings();
             this.addErrorBubble(
-              "La sessione salvata non esiste pi\xF9: ne ho creata una nuova, rispedisci il messaggio."
+              this.plugin.t("The saved session no longer exists: a new one will be created, resend the message.")
             );
           } else {
             const detail = this.lastStderr.trim().replace(/\s+/g, " ").slice(0, 300);
             this.addErrorBubble(
               this.friendlyError(
-                `Il processo opencode \xE8 terminato con codice ${code}.${detail ? ` ${detail}` : ""}`
+                this.plugin.t("The opencode process exited with code " + String(code) + ". Check the binary path and the model in the settings.") + `.${detail ? " " + detail : ""}`
               )
             );
           }
@@ -1157,9 +1166,9 @@ ${this.context.content}
     const row = this.messagesEl.createDiv({
       cls: "opencode-message opencode-message--user"
     });
-    this.metaWithCopy(row, "Tu", () => text);
+    this.metaWithCopy(row, this.plugin.t("You"), () => text);
     if (ctxLabel) {
-      row.createDiv({ cls: "opencode-context-hint", text: `con contesto: ${ctxLabel}` });
+      row.createDiv({ cls: "opencode-context-hint", text: `${this.plugin.t("with context:")} ${ctxLabel}` });
     }
     row.createDiv({ cls: "opencode-bubble", text });
     this.scrollToBottom();
@@ -1176,7 +1185,7 @@ ${this.context.content}
     const row = this.messagesEl.createDiv({
       cls: "opencode-message opencode-message--error"
     });
-    this.metaWithCopy(row, "Errore", () => msg);
+    this.metaWithCopy(row, this.plugin.t("Error"), () => msg);
     row.createDiv({ cls: "opencode-bubble", text: msg });
     this.scrollToBottom();
   }
@@ -1186,7 +1195,7 @@ ${this.context.content}
     meta.createSpan({ cls: "opencode-meta-spacer" });
     const btn = meta.createEl("button", {
       cls: "opencode-icon-btn",
-      attr: { title: "Copia testo" }
+      attr: { title: this.plugin.t("Copy text") }
     });
     (0, import_obsidian3.setIcon)(btn, "copy");
     btn.addEventListener("click", () => this.copyText(getText()));
@@ -1204,11 +1213,16 @@ ${this.context.content}
       document.execCommand("copy");
       ta.remove();
     }
-    new import_obsidian3.Notice("Testo copiato.");
+    new import_obsidian3.Notice(this.plugin.t("Text copied."));
+  }
+  // Format the token/cost statistics line according to the selected language.
+  fmtTokens(total, input, output, cost) {
+    const locale = this.plugin.settings.language === "it" ? "it-IT" : "en-US";
+    return `${this.plugin.t("Token:")} ${total.toLocaleString(locale)} (${this.plugin.t("in")} ${input.toLocaleString(locale)} \xB7 ${this.plugin.t("out")} ${output.toLocaleString(locale)}) \xB7 ${this.plugin.t("Cost:")} ${cost.toFixed(4)} $`;
   }
   setRunningUI(running) {
     this.sendBtn.disabled = running;
-    this.sendBtn.setText(running ? "..." : "Invia");
+    this.sendBtn.setText(running ? "..." : this.plugin.t("Send"));
     this.stopBtn.toggleClass("hidden", !running);
     this.sessionSelect.disabled = running;
     this.updateSessionBtnStates();
@@ -1240,7 +1254,7 @@ ${this.context.content}
     const row = this.messagesEl.createDiv({
       cls: "opencode-message opencode-message--assistant"
     });
-    this.metaWithCopy(row, "Opencode", () => rec.text);
+    this.metaWithCopy(row, this.plugin.t("Opencode"), () => rec.text);
     if (rec.reasoning && rec.reasoning.trim()) {
       const det = row.createEl("details", { cls: "opencode-reasoning" });
       det.createEl("summary").setText("Ragionamento");
@@ -1259,7 +1273,7 @@ ${this.context.content}
       const cost = (_i = rec.cost) != null ? _i : 0;
       row.createDiv({
         cls: "opencode-msg-stats",
-        text: `Token: ${total.toLocaleString("it-IT")} (in ${inp.toLocaleString("it-IT")} \xB7 out ${out.toLocaleString("it-IT")}) \xB7 Costo: ${cost.toFixed(4)} $`
+        text: this.fmtTokens(total, inp, out, cost)
       });
     }
   }
@@ -1280,10 +1294,10 @@ var AssistantBubble = class {
     this.rawText = "";
     this.rawReasoning = "";
     this.renderTimer = null;
-    this.view.metaWithCopy(this.row, "Opencode", () => this.rawText);
+    this.view.metaWithCopy(this.row, this.view.plugin.t("Opencode"), () => this.rawText);
     this.reasoningEl = this.row.createEl("details", { cls: "opencode-reasoning hidden" });
     const summary = this.reasoningEl.createEl("summary");
-    summary.setText("Ragionamento");
+    summary.setText(this.view.plugin.t("Reasoning"));
     this.reasoningContent = this.reasoningEl.createDiv({ cls: "opencode-reasoning-content" });
     this.stepsEl = this.row.createDiv({ cls: "opencode-steps" });
     this.contentEl = this.row.createDiv({ cls: "opencode-bubble opencode-bubble--assistant" });
@@ -1375,7 +1389,7 @@ var AssistantBubble = class {
   }
   buildStepDetails(main, step) {
     const det = main.createEl("details", { cls: "opencode-step-details" });
-    det.createEl("summary").setText("Dettagli");
+    det.createEl("summary").setText(this.view.plugin.t("Details"));
     const pre = det.createEl("pre", { cls: "opencode-step-io" });
     pre.setText(this.serializeStep(step));
   }
@@ -1386,15 +1400,15 @@ var AssistantBubble = class {
       return s.length > 4e3 ? s.slice(0, 4e3) + "\u2026" : s;
     };
     if (step.input !== void 0 && step.input !== null) {
-      parts.push("INPUT:\n" + fmt(step.input));
+      parts.push(this.view.plugin.t("INPUT:") + "\n" + fmt(step.input));
     }
     if (step.output !== void 0 && step.output !== null) {
-      parts.push("OUTPUT:\n" + fmt(step.output));
+      parts.push(this.view.plugin.t("OUTPUT:") + "\n" + fmt(step.output));
     }
-    return parts.join("\n\n---\n\n") || "(nessun dettaglio)";
+    return parts.join("\n\n---\n\n") || this.view.plugin.t("(no details)");
   }
   stepTitle(step) {
-    const t = String(step.title || step.tool || "Strumento");
+    const t = String(step.title || step.tool || this.view.plugin.t("Tool"));
     return t.length > 120 ? t.slice(0, 117) + "\u2026" : t;
   }
   setFinish(info) {
@@ -1408,7 +1422,7 @@ var AssistantBubble = class {
       const cost = (_d = info.cost) != null ? _d : 0;
       this.statsEl.removeClass("hidden");
       this.statsEl.setText(
-        `Token: ${total.toLocaleString("it-IT")} (in ${input.toLocaleString("it-IT")} \xB7 out ${output.toLocaleString("it-IT")}) \xB7 Costo: ${cost.toFixed(4)} $`
+        this.view.fmtTokens(total, input, output, cost)
       );
     }
   }
@@ -1776,6 +1790,168 @@ var OpencodeRunner = class {
   }
 };
 
+// src/i18n.ts
+var IT = {
+  // --- settings ---
+  "Language": "Lingua",
+  "Interface language. English is the default. Some command names update after reloading Obsidian.": "Lingua dell'interfaccia. L'inglese \xE8 il default. Alcuni nomi dei comandi si aggiornano dopo il ricaricamento di Obsidian.",
+  "English": "Inglese",
+  "Italian": "Italiano",
+  "Binary path": "Percorso binario",
+  "Command or full path to the opencode executable. Usually 'opencode' is enough if it is on your PATH. If you have issues, use the full path (e.g. on Windows .../npm/opencode.cmd, on macOS/Linux .../bin/opencode).": "Comando o percorso completo dell'eseguibile opencode. Di solito basta 'opencode' se \xE8 nel PATH. In caso di problemi usa il percorso completo (es. su Windows .../npm/opencode.cmd, su macOS/Linux .../bin/opencode).",
+  "Model": "Modello",
+  "Pick a model from the opencode list. The same selector is also available in the chat bar. The default uses the OpenCode Go provider (the same as the desktop app).": "Seleziona un modello dalla lista di opencode. Lo stesso selettore \xE8 disponibile anche nella barra della chat. Il default usa il provider OpenCode Go (lo stesso dell'app desktop).",
+  "Refresh model list": "Aggiorna elenco modelli",
+  "Reload the list of available models from opencode.": "Ricarica la lista dei modelli disponibili da opencode.",
+  "Refresh": "Aggiorna",
+  "Agent": "Agent",
+  "The opencode agent to use (e.g. build, plan). Leave empty for the default.": "Agente opencode da usare (es. build, plan). Lascia vuoto per il default.",
+  "e.g. build": "es. build",
+  "Session ID": "Session ID",
+  "The persistent session id used for the chat. It is managed automatically: the first time a new session starts, then it is reused. Empty = new session on the next message.": "ID della sessione persistente usata per la chat. Viene gestito automaticamente: la prima volta parte una sessione nuova, poi viene riusata. Vuoto = nuova sessione al prossimo messaggio.",
+  "(automatic)": "(automatico)",
+  "Reset session": "Azzera sessione",
+  "Clear the saved session and start from scratch on the next message.": "Cancella la sessione salvata e riparte da zero al prossimo messaggio.",
+  "Reset": "Azzera",
+  "Session reset: the next message will start from a new session.": "Sessione azzerata: il prossimo messaggio partir\xE0 da una nuova sessione.",
+  "Auto-approve permissions": "Auto-approve permessi",
+  "Automatically allow the tool permissions (bash, file edits, etc.). In non-interactive mode opencode would deny everything without this flag. Turn it off for extra safety.": "Concede automaticamente i permessi degli strumenti (bash, edit file, ecc.). In modalit\xE0 non interattiva opencode negherebbe tutto senza questo flag. Disattivalo per maggiore sicurezza.",
+  "Show reasoning": "Mostra ragionamento",
+  "Show the model's reasoning blocks (uses the --thinking flag).": "Mostra i blocchi di reasoning del modello (usa il flag --thinking).",
+  "Show tool details": "Mostra dettagli degli strumenti",
+  "Show the input and output of every tool executed during the request, in collapsible blocks.": "Mostra input e output di ogni strumento eseguito durante la richiesta, in blocchi apribili con un clic.",
+  "Test connection": "Testa connessione",
+  "Run 'opencode --version' to verify the binary is reachable.": "Esegue 'opencode --version' per verificare che il binario sia raggiungibile.",
+  "Test": "Test",
+  "Testing...": "Test in corso...",
+  "Opencode found:": "Opencode trovato:",
+  "Error:": "Errore:",
+  "(default from opencode)": "(default di opencode)",
+  "(custom)": "(personalizzato)",
+  // --- main commands ---
+  "New opencode chat": "Nuova chat opencode",
+  "Open opencode chat": "Apri chat opencode",
+  "Continue in a new session (by summarizing)": "Continua in una nuova sessione (riassumendo)",
+  "Send selection to opencode": "Invia selezione a opencode",
+  "No text selected": "Nessun testo selezionato",
+  "Use the current note as context": "Usa la nota corrente come contesto",
+  "No active note": "Nessuna nota attiva",
+  "Analyze the current note with opencode": "Analizza la nota corrente con opencode",
+  "Analyze the content of the attached note below: provide a summary, key points, possible links with other vault notes and suggestions to develop it.": "Analizza il contenuto della nota allegata qui sotto: fornisci un riassunto, i punti chiave, eventuali collegamenti con altre note del vault e suggerimenti per svilupparla.",
+  "Reset the opencode session": "Azzera la sessione opencode",
+  "Session reset.": "Sessione azzerata.",
+  // --- chat view ---
+  "You": "Tu",
+  "Opencode": "Opencode",
+  "Error": "Errore",
+  "Copy text": "Copia testo",
+  "Text copied.": "Testo copiato.",
+  "Type a message for opencode... (Enter to send, Shift+Enter for a new line)": "Scrivi un messaggio per opencode... (Invio per inviare, Shift+Invio per andare a capo)",
+  "Send": "Invia",
+  "Stop": "Stop",
+  "New session": "Nuova sessione",
+  "All sessions": "Tutte le sessioni",
+  "Rename session": "Rinomina sessione",
+  "Delete session": "Elimina sessione",
+  "Pin/Unpin session": "Pina/Spilla la sessione",
+  "Session stats (tokens and costs)": "Statistiche token e costi",
+  "Attach file": "Allega file",
+  "Current note": "Nota corrente",
+  "Remove the attached context": "Rimuovi il contesto allegato",
+  "Session pinned.": "Sessione pinnata.",
+  "Session unpinned.": "Sessione rimossa dai pinnati.",
+  "Select a session to pin.": "Seleziona una sessione da pinnare.",
+  "Select a session to rename.": "Seleziona una sessione da rinominare.",
+  "Select a session to delete.": "Seleziona una sessione da eliminare.",
+  "The title cannot be empty.": "Il titolo non pu\xF2 essere vuoto.",
+  "Session renamed.": "Sessione rinominata.",
+  "Session deleted.": "Sessione eliminata.",
+  'Do you want to delete the session "$1"? The history saved in Obsidian will also be removed.': 'Vuoi eliminare la sessione "$1"? Verr\xE0 rimossa anche la cronologia salvata in Obsidian.',
+  "Delete": "Elimina",
+  "Cancel": "Annulla",
+  "Context:": "Contesto:",
+  "with context:": "con contesto:",
+  "Note added to context.": "Nota aggiunta al contesto.",
+  "Image attached: check that the selected model supports images (vision).": "Immagine allegata: verifica che il modello selezionato supporti le immagini (vision).",
+  "New session: the next message will start from scratch.": "Nuova sessione: il prossimo messaggio partir\xE0 da zero.",
+  "There is already a request in progress.": "C'\xE8 gi\xE0 una richiesta in corso.",
+  "Select first the session to summarize.": "Seleziona prima la sessione da riassumere.",
+  "Model set:": "Modello impostato:",
+  "Select a model...": "Scegli un modello...",
+  "navigate": "navigare",
+  "select": "selezionare",
+  "attach": "allegare",
+  "close": "chiudere",
+  "Search a vault file to attach...": "Cerca un file del vault da allegare...",
+  "New title": "Nuovo titolo",
+  "Save": "Salva",
+  "Token usage and costs": "Utilizzo token e costi",
+  "Loading...": "Caricamento...",
+  "Last 5 hours": "Ultime 5 ore",
+  "Last week": "Ultima settimana",
+  "Last month": "Ultimo mese",
+  "Input tokens": "Token input",
+  "Output tokens": "Token output",
+  "Total tokens": "Totale token",
+  "Cost": "Costo",
+  "Generating session summary...": "Generazione riassunto della sessione...",
+  "The session summary could not be generated.": "Riassunto della sessione non riuscito.",
+  "Starting...": "In avvio...",
+  "Details": "Dettagli",
+  "Reasoning": "Ragionamento",
+  "Tool": "Strumento",
+  "INPUT:": "INPUT:",
+  "OUTPUT:": "OUTPUT:",
+  "(no details)": "(nessun dettaglio)",
+  "events": "eventi",
+  "Token:": "Token:",
+  "in": "in",
+  "out": "out",
+  "Cost:": "Costo:",
+  "The selected model does not support images. Remove the attached image or choose a multimodal (vision) model from the Model menu.": "Il modello selezionato non supporta le immagini. Rimuovi l'allegato immagine oppure scegli un modello multimodale (con supporto vision) dal menu Modello.",
+  "The saved session no longer exists: a new one will be created, resend the message.": "La sessione salvata non esiste pi\xF9: ne verr\xE0 creata una nuova, rispedisci il messaggio.",
+  "The opencode process exited with code $1. Check the binary path and the model in the settings.": "Il processo opencode \xE8 terminato con codice $1. Verifica il percorso del binario e il modello nelle impostazioni.",
+  "Session at the limit: new session created with the recent history.": "Sessione al limite: nuova sessione creata con la cronologia recente.",
+  "New session created with the summary of the previous one.": "Nuova sessione creata con il riassunto della precedente.",
+  "[SUMMARY OF THE PREVIOUS SESSION]": "[RIASSUNTO DELLA SESSIONE PRECEDENTE]",
+  "[RECENT HISTORY OF THE PREVIOUS SESSION]": "[CRONOLOGIA RECENTE DELLA SESSIONE PRECEDENTE]",
+  "Continue the work from here.": "Continua il lavoro da qui.",
+  "Continue the work from the previous session.": "Continua il lavoro dalla sessione precedente.",
+  "Continue the work from here, keeping the context above in mind.": "Continua il lavoro da qui, tenendo conto del contesto sopra.",
+  "The previous session has no saved history. Continue the work from here.": "La sessione precedente non ha una cronologia salvata. Continua il lavoro da qui.",
+  "User": "Utente",
+  // --- suggestions ---
+  "/model": "/modello",
+  "Change the model": "Cambia il modello",
+  "/new": "/nuova",
+  "/note": "/nota",
+  "Attach the current note": "Allega la nota corrente",
+  "/attach": "/allega",
+  "Attach a file": "Allega un file",
+  "Token and cost statistics": "Statistiche token e costi",
+  "/pin": "/pin",
+  "/rename": "/rinomina",
+  "Attached": "Allegato",
+  "current note": "nota corrente",
+  "Attach the open note as context": "Allega la nota aperta come contesto",
+  "attach file": "allega file",
+  "Pick a file to attach": "Scegli un file da allegare",
+  "new session": "nuova sessione",
+  "Start from an empty session": "Parti da una sessione vuota",
+  "statistics": "statistiche",
+  "Tokens and costs (5h, week, month)": "Token e costi (5h, settimana, mese)",
+  "pin/unpin session": "pina/spilla sessione",
+  "Pin the session in the list": "Fissa la sessione nella lista",
+  "active model": "modello attivo",
+  "Hi! I am the plugin that connects your vault to opencode. Write a message below. Try the commands: / for commands, @ to attach a file, ! for quick actions.": "Ciao! Sono il plugin che collega il tuo vault a opencode. Scrivi un messaggio qui sotto. Prova i comandi: / per i comandi, @ per allegare un file, ! per le azioni rapide.",
+  "Summarize in detail this conversation: goals, decisions made, work done, current state and next steps. Write the summary so the work can continue in a new session without losing context.": "Riassumi in dettaglio questa conversazione: obiettivi, decisioni prese, lavoro svolto, stato attuale e prossimi passi. Scrivi il riassunto in modo che si possa continuare il lavoro in una nuova sessione senza perdere il contesto."
+};
+function translate(lang, text) {
+  var _a;
+  if (lang === "it") return (_a = IT[text]) != null ? _a : text;
+  return text;
+}
+
 // src/main.ts
 var OpencodePlugin = class extends import_obsidian5.Plugin {
   constructor() {
@@ -1789,23 +1965,24 @@ var OpencodePlugin = class extends import_obsidian5.Plugin {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, rest);
     this.histories = histories != null ? histories : {};
     this.runner = new OpencodeRunner(this);
+    const t = this.t.bind(this);
     this.registerView(CHAT_VIEW_TYPE, (leaf) => new ChatView(leaf, this));
-    this.addRibbonIcon("bot", "Nuova chat opencode", () => {
+    this.addRibbonIcon("bot", t("New opencode chat"), () => {
       void this.openNewChatView();
     });
     this.addCommand({
       id: "open-chat",
-      name: "Apri chat opencode",
+      name: t("Open opencode chat"),
       callback: () => this.openChatView()
     });
     this.addCommand({
       id: "new-chat",
-      name: "Nuova chat opencode",
+      name: t("New opencode chat"),
       callback: () => this.openNewChatView()
     });
     this.addCommand({
       id: "continue-new-session",
-      name: "Continua in una nuova sessione (riassumendo)",
+      name: t("Continue in a new session (by summarizing)"),
       callback: async () => {
         const chat = await this.openChatView();
         chat.continueInNewSession();
@@ -1813,14 +1990,14 @@ var OpencodePlugin = class extends import_obsidian5.Plugin {
     });
     this.addCommand({
       id: "send-selection",
-      name: "Invia selezione a opencode",
+      name: t("Send selection to opencode"),
       editorCallback: (editor, view) => {
         const selection = editor.getSelection();
         if (!selection.trim()) {
-          new import_obsidian5.Notice("Nessun testo selezionato");
+          new import_obsidian5.Notice(t("No text selected"));
           return;
         }
-        const label = view.file ? view.file.path : "selezione";
+        const label = view.file ? view.file.path : "selection";
         this.openChatView().then((chat) => {
           chat.setContext({ label, content: selection });
           chat.focusInput();
@@ -1829,11 +2006,11 @@ var OpencodePlugin = class extends import_obsidian5.Plugin {
     });
     this.addCommand({
       id: "use-current-note",
-      name: "Usa la nota corrente come contesto",
+      name: t("Use the current note as context"),
       callback: async () => {
         const file = this.app.workspace.getActiveFile();
         if (!file) {
-          new import_obsidian5.Notice("Nessuna nota attiva");
+          new import_obsidian5.Notice(t("No active note"));
           return;
         }
         const content = await this.app.vault.cachedRead(file);
@@ -1844,31 +2021,38 @@ var OpencodePlugin = class extends import_obsidian5.Plugin {
     });
     this.addCommand({
       id: "analyze-current-note",
-      name: "Analizza la nota corrente con opencode",
+      name: t("Analyze the current note with opencode"),
       callback: async () => {
         const file = this.app.workspace.getActiveFile();
         if (!file) {
-          new import_obsidian5.Notice("Nessuna nota attiva");
+          new import_obsidian5.Notice(t("No active note"));
           return;
         }
         const content = await this.app.vault.cachedRead(file);
         const chat = await this.openChatView();
         chat.setContext({ label: file.path, content });
         chat.sendText(
-          "Analizza il contenuto della nota allegata qui sotto: fornisci un riassunto, i punti chiave, eventuali collegamenti con altre note del vault e suggerimenti per svilupparla."
+          t(
+            "Analyze the content of the attached note below: provide a summary, key points, possible links with other vault notes and suggestions to develop it."
+          )
         );
       }
     });
     this.addCommand({
       id: "reset-session",
-      name: "Azzera la sessione opencode",
+      name: t("Reset the opencode session"),
       callback: async () => {
         this.settings.sessionId = "";
         await this.saveSettings();
-        new import_obsidian5.Notice("Sessione opencode azzerata.");
+        new import_obsidian5.Notice(t("Session reset."));
       }
     });
     this.addSettingTab(new OpencodeSettingTab(this.app, this));
+  }
+  // Translate a UI string according to the selected language.
+  t(text) {
+    var _a, _b;
+    return translate((_b = (_a = this.settings) == null ? void 0 : _a.language) != null ? _b : "en", text);
   }
   async openChatView() {
     const existing = this.app.workspace.getLeavesOfType(CHAT_VIEW_TYPE)[0];
@@ -1899,7 +2083,7 @@ var OpencodePlugin = class extends import_obsidian5.Plugin {
   async appendHistory(sessionId, msg) {
     var _a;
     if (!sessionId) return;
-    const cap = (t) => t && t.length > 5e4 ? t.slice(0, 5e4) + "\u2026" : t;
+    const cap = (s) => s && s.length > 5e4 ? s.slice(0, 5e4) + "\u2026" : s;
     msg.text = (_a = cap(msg.text)) != null ? _a : "";
     if (msg.role === "assistant") msg.reasoning = cap(msg.reasoning);
     if (!this.histories[sessionId]) this.histories[sessionId] = [];

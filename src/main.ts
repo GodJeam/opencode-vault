@@ -2,6 +2,7 @@ import { Notice, Plugin, WorkspaceLeaf } from "obsidian";
 import { CHAT_VIEW_TYPE, ChatView } from "./chatView";
 import { OpencodeRunner } from "./opencodeRunner";
 import { DEFAULT_SETTINGS, OpencodeSettingTab, OpencodeSettings } from "./settings";
+import { translate } from "./i18n";
 
 export interface HistoryUser {
   role: "user";
@@ -31,28 +32,29 @@ export default class OpencodePlugin extends Plugin {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, rest);
     this.histories = histories ?? {};
     this.runner = new OpencodeRunner(this);
+    const t = this.t.bind(this);
 
     this.registerView(CHAT_VIEW_TYPE, (leaf) => new ChatView(leaf, this));
 
-    this.addRibbonIcon("bot", "Nuova chat opencode", () => {
+    this.addRibbonIcon("bot", t("New opencode chat"), () => {
       void this.openNewChatView();
     });
 
     this.addCommand({
       id: "open-chat",
-      name: "Apri chat opencode",
+      name: t("Open opencode chat"),
       callback: () => this.openChatView(),
     });
 
     this.addCommand({
       id: "new-chat",
-      name: "Nuova chat opencode",
+      name: t("New opencode chat"),
       callback: () => this.openNewChatView(),
     });
 
     this.addCommand({
       id: "continue-new-session",
-      name: "Continua in una nuova sessione (riassumendo)",
+      name: t("Continue in a new session (by summarizing)"),
       callback: async () => {
         const chat = await this.openChatView();
         chat.continueInNewSession();
@@ -61,14 +63,14 @@ export default class OpencodePlugin extends Plugin {
 
     this.addCommand({
       id: "send-selection",
-      name: "Invia selezione a opencode",
+      name: t("Send selection to opencode"),
       editorCallback: (editor, view) => {
         const selection = editor.getSelection();
         if (!selection.trim()) {
-          new Notice("Nessun testo selezionato");
+          new Notice(t("No text selected"));
           return;
         }
-        const label = view.file ? view.file.path : "selezione";
+        const label = view.file ? view.file.path : "selection";
         this.openChatView().then((chat) => {
           chat.setContext({ label, content: selection });
           chat.focusInput();
@@ -78,11 +80,11 @@ export default class OpencodePlugin extends Plugin {
 
     this.addCommand({
       id: "use-current-note",
-      name: "Usa la nota corrente come contesto",
+      name: t("Use the current note as context"),
       callback: async () => {
         const file = this.app.workspace.getActiveFile();
         if (!file) {
-          new Notice("Nessuna nota attiva");
+          new Notice(t("No active note"));
           return;
         }
         const content = await this.app.vault.cachedRead(file);
@@ -94,33 +96,40 @@ export default class OpencodePlugin extends Plugin {
 
     this.addCommand({
       id: "analyze-current-note",
-      name: "Analizza la nota corrente con opencode",
+      name: t("Analyze the current note with opencode"),
       callback: async () => {
         const file = this.app.workspace.getActiveFile();
         if (!file) {
-          new Notice("Nessuna nota attiva");
+          new Notice(t("No active note"));
           return;
         }
         const content = await this.app.vault.cachedRead(file);
         const chat = await this.openChatView();
         chat.setContext({ label: file.path, content });
         chat.sendText(
-          "Analizza il contenuto della nota allegata qui sotto: fornisci un riassunto, i punti chiave, eventuali collegamenti con altre note del vault e suggerimenti per svilupparla."
+          t(
+            "Analyze the content of the attached note below: provide a summary, key points, possible links with other vault notes and suggestions to develop it."
+          )
         );
       },
     });
 
     this.addCommand({
       id: "reset-session",
-      name: "Azzera la sessione opencode",
+      name: t("Reset the opencode session"),
       callback: async () => {
         this.settings.sessionId = "";
         await this.saveSettings();
-        new Notice("Sessione opencode azzerata.");
+        new Notice(t("Session reset."));
       },
     });
 
     this.addSettingTab(new OpencodeSettingTab(this.app, this));
+  }
+
+  // Translate a UI string according to the selected language.
+  t(text: string): string {
+    return translate(this.settings?.language ?? "en", text);
   }
 
   async openChatView(): Promise<ChatView> {
@@ -134,8 +143,8 @@ export default class OpencodePlugin extends Plugin {
 
   async openNewChatView(): Promise<ChatView> {
     const { workspace } = this.app;
-    // Apre una nuova chat in un pannello affiancato (split verticale),
-    // così puoi gestire più sessioni contemporaneamente.
+    // Opens a new chat in a side-by-side pane (vertical split) so that
+    // multiple sessions can be managed at the same time.
     let leaf: WorkspaceLeaf;
     try {
       leaf = workspace.getLeaf("split", "vertical");
@@ -148,7 +157,7 @@ export default class OpencodePlugin extends Plugin {
   }
 
   onunload(): void {
-    // i processi in corso vengono terminati da ogni singola vista (onClose)
+    // in-flight processes are killed by each view (onClose)
   }
 
   getHistory(sessionId: string): HistoryMessage[] {
@@ -157,10 +166,10 @@ export default class OpencodePlugin extends Plugin {
 
   async appendHistory(sessionId: string, msg: HistoryMessage): Promise<void> {
     if (!sessionId) return;
-    // Limita la dimensione dei messaggi salvati per non appesantire il data.json
-    // e il salvataggio (le risposte di task lunghe possono essere molto grandi).
-    const cap = (t: string | undefined): string | undefined =>
-      t && t.length > 50000 ? t.slice(0, 50000) + "…" : t;
+    // Cap the size of stored messages to keep data.json (and its saves) light,
+    // since responses of long tasks can be very large.
+    const cap = (s: string | undefined): string | undefined =>
+      s && s.length > 50000 ? s.slice(0, 50000) + "…" : s;
     msg.text = cap(msg.text) ?? "";
     if (msg.role === "assistant") msg.reasoning = cap(msg.reasoning);
     if (!this.histories[sessionId]) this.histories[sessionId] = [];

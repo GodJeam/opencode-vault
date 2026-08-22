@@ -118,7 +118,7 @@ onClose(): Promise<void> {
     this.contextLabelEl = this.contextBar.createSpan({ cls: "opencode-context-label" });
     this.contextClearBtn = this.contextBar.createEl("button", {
       cls: "opencode-icon-btn hidden",
-      attr: { title: "Rimuovi il contesto allegato" },
+      attr: { title: this.plugin.t("Remove the attached context") },
     });
     setIcon(this.contextClearBtn, "x");
     this.contextClearBtn.addEventListener("click", () => {
@@ -145,38 +145,38 @@ onClose(): Promise<void> {
 
     this.pinBtn = this.contextBar.createEl("button", {
       cls: "opencode-icon-btn",
-      attr: { title: "Pina/Spilla la sessione" },
+      attr: { title: this.plugin.t("Pin/Unpin session") },
     });
     setIcon(this.pinBtn, "pin");
     this.pinBtn.addEventListener("click", () => this.togglePin());
 
     this.renameBtn = this.contextBar.createEl("button", {
       cls: "opencode-icon-btn",
-      attr: { title: "Rinomina sessione" },
+      attr: { title: this.plugin.t("Rename session") },
     });
     setIcon(this.renameBtn, "pencil");
     this.renameBtn.addEventListener("click", () => this.renameCurrentSession());
 
     this.deleteBtn = this.contextBar.createEl("button", {
       cls: "opencode-icon-btn",
-      attr: { title: "Elimina sessione" },
+      attr: { title: this.plugin.t("Delete session") },
     });
     setIcon(this.deleteBtn, "trash");
     this.deleteBtn.addEventListener("click", () => this.deleteCurrentSession());
 
     const statsBtn = this.contextBar.createEl("button", {
       cls: "opencode-icon-btn",
-      attr: { title: "Statistiche token e costi" },
+      attr: { title: this.plugin.t("Token and cost statistics") },
     });
     setIcon(statsBtn, "bar-chart-3");
-    statsBtn.addEventListener("click", () => new StatsModal(this.app, this.plugin.runner).open());
+    statsBtn.addEventListener("click", () => new StatsModal(this.app, this.plugin).open());
 
     const attachBtn = this.contextBar.createEl("button", { cls: "opencode-add-note-btn" });
-    attachBtn.setText("＋ Allega file");
+    attachBtn.setText("＋ " + this.plugin.t("Attach file"));
     attachBtn.addEventListener("click", () => this.openFilePicker());
 
     const add = this.contextBar.createEl("button", { cls: "opencode-add-note-btn" });
-    add.setText("+ Nota corrente");
+    add.setText("+ " + this.plugin.t("Current note"));
     add.addEventListener("click", () => this.attachCurrentNote());
 
     this.updateContextBar();
@@ -210,7 +210,7 @@ onClose(): Promise<void> {
   }
 
   private openFilePicker(): void {
-    new FileSuggestModal(this.app, (file) => this.addAttachment(file.path)).open();
+    new FileSuggestModal(this.app, this.plugin, (file) => this.addAttachment(file.path)).open();
   }
 
   private addAttachment(path: string): void {
@@ -220,7 +220,7 @@ onClose(): Promise<void> {
     this.updateAttachmentsBar();
     if (isImage) {
       new Notice(
-        "Immagine allegata: verifica che il modello selezionato supporti le immagini (vision)."
+        this.plugin.t("Image attached: check that the selected model supports images (vision).")
       );
     }
   }
@@ -228,7 +228,7 @@ onClose(): Promise<void> {
   private togglePin(): void {
     const id = this.viewSession;
     if (!id) {
-      new Notice("Seleziona una sessione da pinnare.");
+      new Notice(this.plugin.t("Select a session to pin."));
       return;
     }
     const pinned = this.plugin.settings.pinned ?? [];
@@ -238,39 +238,40 @@ onClose(): Promise<void> {
     this.plugin.settings.pinned = pinned;
     void this.plugin.saveSettings();
     void this.populateSessionSelect();
-    new Notice(idx >= 0 ? "Sessione rimossa dai pinnati." : "Sessione pinnata.");
+    new Notice(idx >= 0 ? this.plugin.t("Session unpinned.") : this.plugin.t("Session pinned."));
   }
 
   private renameCurrentSession(): void {
     const id = this.viewSession;
     if (!id) {
-      new Notice("Seleziona una sessione da rinominare.");
+      new Notice(this.plugin.t("Select a session to rename."));
       return;
     }
     const current = this.sessionSelect.selectedOptions[0]?.textContent ?? id;
-    new RenameModal(this.app, current, (newTitle) => {
+    new RenameModal(this.app, this.plugin, current, (newTitle) => {
       this.plugin.runner
         .renameSession(id, newTitle)
         .then(() => {
           void this.populateSessionSelect();
-          new Notice("Sessione rinominata.");
+          new Notice(this.plugin.t("Session renamed."));
         })
-        .catch((e) => new Notice(`Errore: ${(e as Error).message}`));
+        .catch((e) => new Notice(`${this.plugin.t("Error:")} ${(e as Error).message}`));
     }).open();
   }
 
   private deleteCurrentSession(): void {
     const id = this.viewSession;
     if (!id) {
-      new Notice("Seleziona una sessione da eliminare.");
+      new Notice(this.plugin.t("Select a session to delete."));
       return;
     }
     const title = this.sessionSelect.selectedOptions[0]?.textContent ?? id;
     new ConfirmModal(
       this.app,
-      "Elimina sessione",
-      `Vuoi eliminare la sessione "${title}"? Verrà rimossa anche la cronologia salvata in Obsidian.`,
-      "Elimina",
+      this.plugin,
+      this.plugin.t("Delete session"),
+      this.plugin.t('Do you want to delete the session "$1"? The history saved in Obsidian will also be removed.').replace("$1", title),
+      this.plugin.t("Delete"),
       () => {
         this.plugin.runner
           .deleteSession(id)
@@ -285,16 +286,16 @@ onClose(): Promise<void> {
             await this.plugin.saveSettings();
             await this.populateSessionSelect();
             this.loadHistoryForSession(this.viewSession);
-            new Notice("Sessione eliminata.");
+            new Notice(this.plugin.t("Session deleted."));
           })
-          .catch((e) => new Notice(`Errore: ${(e as Error).message}`));
+          .catch((e) => new Notice(`${this.plugin.t("Error:")} ${(e as Error).message}`));
       }
     ).open();
   }
 
   private updateContextBar(): void {
     if (this.context) {
-      this.contextLabelEl.setText(`Contesto: ${this.context.label}`);
+      this.contextLabelEl.setText(`${this.plugin.t("Context:")} ${this.context.label}`);
       this.contextLabelEl.show();
       this.contextClearBtn.removeClass("hidden");
     } else {
@@ -309,7 +310,7 @@ onClose(): Promise<void> {
     sel.empty();
     const newOpt = sel.createEl("option");
     newOpt.value = "";
-    newOpt.textContent = "＋ Nuova sessione";
+    newOpt.textContent = "＋ " + this.plugin.t("New session");
     try {
       const sessions = await this.plugin.runner.listSessions();
       sessions.sort((a, b) => (b.updated ?? 0) - (a.updated ?? 0));
@@ -349,7 +350,7 @@ onClose(): Promise<void> {
     if (!this.statsBar) return;
     this.statsBar.empty();
     this.statsBar.createSpan({
-      text: `Token: ${this.stats.total.toLocaleString("it-IT")} (in ${this.stats.input.toLocaleString("it-IT")} · out ${this.stats.output.toLocaleString("it-IT")}) · Costo: ${this.stats.cost.toFixed(4)} $`,
+      text: this.fmtTokens(this.stats.total, this.stats.input, this.stats.output, this.stats.cost),
       cls: "opencode-stats-text",
     });
   }
@@ -372,13 +373,13 @@ onClose(): Promise<void> {
   private async attachCurrentNote(): Promise<void> {
     const file = this.app.workspace.getActiveFile();
     if (!file) {
-      new Notice("Nessuna nota attiva");
+      new Notice(this.plugin.t("No active note"));
       return;
     }
     const content = await this.app.vault.cachedRead(file);
     this.context = { label: file.path, content };
     this.updateContextBar();
-    new Notice("Nota aggiunta al contesto");
+    new Notice(this.plugin.t("Note added to context."));
   }
 
   private buildInputArea(container: HTMLElement): void {
@@ -390,7 +391,7 @@ onClose(): Promise<void> {
       cls: "opencode-input",
       attr: {
         placeholder:
-          "Scrivi un messaggio per opencode... (Invio per inviare, Shift+Invio per andare a capo)",
+          this.plugin.t("Type a message for opencode... (Enter to send, Shift+Enter for a new line)"),
       },
     });
     this.inputEl.addEventListener("keydown", (e) => this.onInputKeydown(e));
@@ -405,11 +406,11 @@ onClose(): Promise<void> {
     buttons.createSpan({ cls: "opencode-buttons-spacer" });
 
     this.sendBtn = buttons.createEl("button", { cls: "opencode-send-btn" });
-    this.sendBtn.setText("Invia");
+    this.sendBtn.setText(this.plugin.t("Send"));
     this.sendBtn.addEventListener("click", () => this.send());
 
     this.stopBtn = buttons.createEl("button", { cls: "opencode-stop-btn" });
-    this.stopBtn.setText("Stop");
+    this.stopBtn.setText(this.plugin.t("Stop"));
     this.stopBtn.addClass("hidden");
 this.stopBtn.addEventListener("click", () => {
       this.stoppedByUser = true;
@@ -429,14 +430,14 @@ this.stopBtn.addEventListener("click", () => {
       this.suggestTrigger = null;
       this.suggestItems = models.map((m) => ({
         label: m === cur ? `${m}  ✓` : m,
-        desc: m === cur ? "modello attivo" : undefined,
+        desc: m === cur ? this.plugin.t("active model") : undefined,
         action: () => {
           this.plugin.settings.model = m;
           void this.plugin.saveSettings();
           this.updateModelBtn();
           this.closeSuggest();
           this.inputEl.focus();
-          new Notice(`Modello impostato: ${m}`);
+          new Notice(`${this.plugin.t("Model set:")} ${m}`);
         },
       }));
       this.suggestIndex = Math.max(0, this.suggestItems.findIndex((x) => x.label.startsWith(cur)));
@@ -447,7 +448,7 @@ this.stopBtn.addEventListener("click", () => {
     this.plugin.runner
       .listModels()
       .then(open)
-      .catch((e) => new Notice(`Errore: ${(e as Error).message}`));
+      .catch((e) => new Notice(`${this.plugin.t("Error:")} ${(e as Error).message}`));
   }
 
   private startNewSession(): void {
@@ -456,22 +457,22 @@ this.stopBtn.addEventListener("click", () => {
     void this.plugin.saveSettings();
     void this.populateSessionSelect();
     this.loadHistoryForSession("");
-    new Notice("Nuova sessione: il prossimo messaggio partirà da zero.");
+    new Notice(this.plugin.t("New session: the next message will start from scratch."));
   }
 
   continueInNewSession(): void {
     if (this.running) {
-      new Notice("C'è già una richiesta in corso.");
+      new Notice(this.plugin.t("There is already a request in progress."));
       return;
     }
     const oldSession = this.viewSession;
     if (!oldSession) {
-      new Notice("Seleziona prima la sessione da riassumere.");
+      new Notice(this.plugin.t("Select first the session to summarize."));
       return;
     }
 
     const bubble = this.addAssistantMessage();
-    bubble.status.setText("Generazione riassunto della sessione...");
+    bubble.status.setText(this.plugin.t("Generating session summary..."));
 
     this.running = true;
     this.hadStreamError = false;
@@ -480,7 +481,7 @@ this.stopBtn.addEventListener("click", () => {
     this.setRunningUI(true);
 
     const summaryPrompt =
-      "Riassumi in modo dettagliato questa conversazione: obiettivi, decisioni prese, lavoro svolto, stato attuale e prossimi passi. Scrivi il riassunto in modo che si possa continuare il lavoro in una nuova sessione senza perdere il contesto.";
+      this.plugin.t("Summarize in detail this conversation: goals, decisions made, work done, current state and next steps. Write the summary so the work can continue in a new session without losing context.");
     const proc = this.plugin.runner.runStream(summaryPrompt, [], {
       onSession: () => {},
       onRaw: (chunk) => {
@@ -519,17 +520,17 @@ this.stopBtn.addEventListener("click", () => {
           }
           this.finishContinuation(
             this.buildLocalContinuation(oldSession),
-            "Sessione al limite: nuova sessione creata con la cronologia recente."
+            this.plugin.t("Session at the limit: new session created with the recent history.")
           );
           return;
         }
         const summary = bubble.getSnapshot().text.trim();
         const prompt = summary
-          ? `[RIASSUNTO DELLA SESSIONE PRECEDENTE]\n${summary}\n\n---\n\nContinua il lavoro da qui.`
-          : "Continua il lavoro dalla sessione precedente.";
+          ? this.plugin.t("[SUMMARY OF THE PREVIOUS SESSION]") + "\n" + summary + "\n\n---\n\n" + this.plugin.t("Continue the work from here.")
+          : this.plugin.t("Continue the work from the previous session.");
         this.finishContinuation(
           prompt,
-          "Nuova sessione creata con il riassunto della precedente."
+          this.plugin.t("New session created with the summary of the previous one.")
         );
       },
     });
@@ -551,22 +552,22 @@ this.stopBtn.addEventListener("click", () => {
     const history = this.plugin.getHistory(sessionId);
     const recent = history.slice(-24);
     if (recent.length === 0) {
-      return "La sessione precedente non ha una cronologia salvata. Continua il lavoro da qui.";
+      return this.plugin.t("The previous session has no saved history. Continue the work from here.");
     }
     const lines: string[] = [];
     for (const rec of recent) {
-      const who = rec.role === "user" ? "Utente" : "Opencode";
+      const who = rec.role === "user" ? this.plugin.t("User") : "Opencode";
       const text = rec.text.length > 800 ? rec.text.slice(0, 800) + "⬦" : rec.text;
       lines.push(`${who}: ${text}`);
     }
     return (
-      `[CRONOLOGIA RECENTE DELLA SESSIONE PRECEDENTE]\n${lines.join(
+      this.plugin.t("[RECENT HISTORY OF THE PREVIOUS SESSION]") + "\n" + lines.join(
         "\n\n"
-      )}\n\n---\n\nContinua il lavoro da qui, tenendo conto del contesto sopra.`
+      ) + "\n\n---\n\n" + this.plugin.t("Continue the work from here, keeping the context above in mind.")
     );
   }
 
-  // ===== Comandi / @ ! =====
+  // ===== Commands / @ ! =====
 
   private onInputKeydown(e: KeyboardEvent): void {
     if (this.suggestOpen) {
@@ -648,32 +649,32 @@ this.stopBtn.addEventListener("click", () => {
   private commandItems(): SuggestItem[] {
     return [
       {
-        label: "/modello",
-        desc: "Cambia il modello",
+        label: this.plugin.t("/model"),
+        desc: this.plugin.t("Change the model"),
         action: () => {
           this.removeTrigger();
           this.openModelList();
         },
       },
       {
-        label: "/nuova",
-        desc: "Nuova sessione",
+        label: this.plugin.t("/new"),
+        desc: this.plugin.t("New session"),
         action: () => {
           this.removeTrigger();
           this.startNewSession();
         },
       },
       {
-        label: "/nota",
-        desc: "Allega la nota corrente",
+        label: this.plugin.t("/note"),
+        desc: this.plugin.t("Attach the current note"),
         action: () => {
           this.removeTrigger();
           void this.attachCurrentNote();
         },
       },
       {
-        label: "/allega",
-        desc: "Allega un file",
+        label: this.plugin.t("/attach"),
+        desc: this.plugin.t("Attach a file"),
         action: () => {
           this.removeTrigger();
           this.openFilePicker();
@@ -681,23 +682,23 @@ this.stopBtn.addEventListener("click", () => {
       },
       {
         label: "/stats",
-        desc: "Statistiche token e costi",
+        desc: this.plugin.t("Token and cost statistics"),
         action: () => {
           this.removeTrigger();
-          new StatsModal(this.app, this.plugin.runner).open();
+          new StatsModal(this.app, this.plugin).open();
         },
       },
       {
         label: "/pin",
-        desc: "Pina/Spilla la sessione",
+        desc: this.plugin.t("Pin/Unpin session"),
         action: () => {
           this.removeTrigger();
           this.togglePin();
         },
       },
       {
-        label: "/rinomina",
-        desc: "Rinomina la sessione",
+        label: this.plugin.t("/rename"),
+        desc: this.plugin.t("Rename session"),
         action: () => {
           this.removeTrigger();
           this.renameCurrentSession();
@@ -715,7 +716,7 @@ this.stopBtn.addEventListener("click", () => {
     }
     return this.vaultPaths.map((p) => ({
       label: p,
-      desc: "Allegato",
+      desc: this.plugin.t("Attached"),
       action: () => {
         this.removeTrigger();
         this.addAttachment(p);
@@ -726,40 +727,40 @@ this.stopBtn.addEventListener("click", () => {
   private actionItems(): SuggestItem[] {
     return [
       {
-        label: "nota corrente",
-        desc: "Allega la nota aperta come contesto",
+        label: this.plugin.t("current note"),
+        desc: this.plugin.t("Attach the open note as context"),
         action: () => {
           this.removeTrigger();
           void this.attachCurrentNote();
         },
       },
       {
-        label: "allega file",
-        desc: "Scegli un file da allegare",
+        label: this.plugin.t("attach file"),
+        desc: this.plugin.t("Pick a file to attach"),
         action: () => {
           this.removeTrigger();
           this.openFilePicker();
         },
       },
       {
-        label: "nuova sessione",
-        desc: "Parti da una sessione vuota",
+        label: this.plugin.t("new session"),
+        desc: this.plugin.t("Start from an empty session"),
         action: () => {
           this.removeTrigger();
           this.startNewSession();
         },
       },
       {
-        label: "statistiche",
-        desc: "Token e costi (5h, settimana, mese)",
+        label: this.plugin.t("statistics"),
+        desc: this.plugin.t("Tokens and costs (5h, week, month)"),
         action: () => {
           this.removeTrigger();
-          new StatsModal(this.app, this.plugin.runner).open();
+          new StatsModal(this.app, this.plugin).open();
         },
       },
       {
-        label: "pina/spilla sessione",
-        desc: "Fissa la sessione nella lista",
+        label: this.plugin.t("pin/unpin session"),
+        desc: this.plugin.t("Pin the session in the list"),
         action: () => {
           this.removeTrigger();
           this.togglePin();
@@ -818,7 +819,7 @@ private addWelcome(): void {
       cls: "opencode-message opencode-message--assistant",
     });
     const text =
-      "Ciao! Sono il plugin che collega il tuo vault a opencode. Scrivi un messaggio qui sotto. Prova i comandi: / per i comandi, @ per allegare un file, ! per le azioni rapide.";
+      this.plugin.t("Hi! I am the plugin that connects your vault to opencode. Write a message below. Try the commands: / for commands, @ to attach a file, ! for quick actions.");
     this.metaWithCopy(row, "Opencode", () => text);
     row.createDiv({ text, cls: "opencode-bubble" });
   }
@@ -831,7 +832,7 @@ private addWelcome(): void {
     const ctxLabel = this.context?.label;
     if (this.context) {
       prompt =
-        `[CONTESTO DA OBSIDIAN - ${this.context.label}]\n${this.context.content}\n\n---\n\n` + raw;
+        `[CONTEXT FROM OBSIDIAN - ${this.context.label}]\n${this.context.content}\n\n---\n\n` + raw;
       this.context = null;
       this.updateContextBar();
     }
@@ -857,7 +858,7 @@ private addWelcome(): void {
   private toAbsolutePath(vaultPath: string): string {
     const adapter = this.app.vault.adapter;
     if (adapter instanceof FileSystemAdapter) {
-      // Uso i separatori nativi della piattaforma per compatibilità Windows/macOS/Linux
+      // Use the native path separators for Windows/macOS/Linux compatibility
       const sep = process.platform === "win32" ? "\\" : "/";
       return `${adapter.getBasePath()}${sep}${vaultPath.split("/").join(sep)}`;
     }
@@ -870,14 +871,14 @@ private addWelcome(): void {
         msg
       )
     ) {
-      return "Il modello selezionato non supporta le immagini. Rimuovi l'allegato immagine oppure scegli un modello multimodale (con supporto vision) dal menu Modello.";
+      return this.plugin.t("The selected model does not support images. Remove the attached image or choose a multimodal (vision) model from the Model menu.");
     }
     return msg;
   }
 
   private doRun(prompt: string, filePaths: string[] = []): void {
 const bubble = this.addAssistantMessage();
-    bubble.status.setText("In avvio...");
+    bubble.status.setText(this.plugin.t("Starting..."));
 
     this.running = true;
     this.hadStreamError = false;
@@ -885,8 +886,8 @@ const bubble = this.addAssistantMessage();
     this.lastStderr = "";
     this.setRunningUI(true);
 
-    // Indicatore di attività: mostra quanti eventi stanno arrivando, così si
-    // capisce se lo stream è vivo o bloccato durante le task lunghe.
+    // Activity indicator: shows how many events are arriving, so it is easy to
+    // tell whether the stream is alive or stuck during long tasks.
     let eventCount = 0;
     let lastStatusUpdate = 0;
     const touch = () => {
@@ -894,7 +895,7 @@ const bubble = this.addAssistantMessage();
       const now = Date.now();
       if (now - lastStatusUpdate > 400) {
         lastStatusUpdate = now;
-        bubble.status.setText(`… ${eventCount} eventi`);
+        bubble.status.setText(`… ${eventCount} this.plugin.t("events")`);
       }
     };
 
@@ -948,7 +949,7 @@ const proc = this.plugin.runner.runStream(prompt, filePaths, {
           this.plugin.settings.sessionId = "";
           void this.plugin.saveSettings();
           this.addErrorBubble(
-            "La sessione salvata non esiste più: ne verrà creata una nuova, rispedisci il messaggio."
+            this.plugin.t("The saved session no longer exists: a new one will be created, resend the message.")
           );
         } else {
           this.addErrorBubble(this.friendlyError(msg));
@@ -975,13 +976,13 @@ const proc = this.plugin.runner.runStream(prompt, filePaths, {
             this.plugin.settings.sessionId = "";
             void this.plugin.saveSettings();
             this.addErrorBubble(
-              "La sessione salvata non esiste più: ne ho creata una nuova, rispedisci il messaggio."
+              this.plugin.t("The saved session no longer exists: a new one will be created, resend the message.")
             );
           } else {
             const detail = this.lastStderr.trim().replace(/\s+/g, " ").slice(0, 300);
             this.addErrorBubble(
               this.friendlyError(
-                `Il processo opencode è terminato con codice ${code}.${detail ? ` ${detail}` : ""}`
+                this.plugin.t("The opencode process exited with code " + String(code) + ". Check the binary path and the model in the settings.") + `.${detail ? " " + detail : ""}`
               )
             );
           }
@@ -998,9 +999,9 @@ private addUserMessage(text: string, ctxLabel?: string): void {
     const row = this.messagesEl.createDiv({
       cls: "opencode-message opencode-message--user",
     });
-    this.metaWithCopy(row, "Tu", () => text);
+    this.metaWithCopy(row, this.plugin.t("You"), () => text);
     if (ctxLabel) {
-      row.createDiv({ cls: "opencode-context-hint", text: `con contesto: ${ctxLabel}` });
+      row.createDiv({ cls: "opencode-context-hint", text: `${this.plugin.t("with context:")} ${ctxLabel}` });
     }
     row.createDiv({ cls: "opencode-bubble", text });
     this.scrollToBottom();
@@ -1019,7 +1020,7 @@ private addErrorBubble(msg: string): void {
     const row = this.messagesEl.createDiv({
       cls: "opencode-message opencode-message--error",
     });
-    this.metaWithCopy(row, "Errore", () => msg);
+    this.metaWithCopy(row, this.plugin.t("Error"), () => msg);
     row.createDiv({ cls: "opencode-bubble", text: msg });
     this.scrollToBottom();
   }
@@ -1030,7 +1031,7 @@ private addErrorBubble(msg: string): void {
     meta.createSpan({ cls: "opencode-meta-spacer" });
     const btn = meta.createEl("button", {
       cls: "opencode-icon-btn",
-      attr: { title: "Copia testo" },
+      attr: { title: this.plugin.t("Copy text") },
     });
     setIcon(btn, "copy");
     btn.addEventListener("click", () => this.copyText(getText()));
@@ -1049,12 +1050,18 @@ private addErrorBubble(msg: string): void {
       document.execCommand("copy");
       ta.remove();
     }
-    new Notice("Testo copiato.");
+    new Notice(this.plugin.t("Text copied."));
+  }
+
+  // Format the token/cost statistics line according to the selected language.
+  fmtTokens(total: number, input: number, output: number, cost: number): string {
+    const locale = this.plugin.settings.language === "it" ? "it-IT" : "en-US";
+    return `${this.plugin.t("Token:")} ${total.toLocaleString(locale)} (${this.plugin.t("in")} ${input.toLocaleString(locale)} · ${this.plugin.t("out")} ${output.toLocaleString(locale)}) · ${this.plugin.t("Cost:")} ${cost.toFixed(4)} $`;
   }
 
   private setRunningUI(running: boolean): void {
     this.sendBtn.disabled = running;
-    this.sendBtn.setText(running ? "..." : "Invia");
+    this.sendBtn.setText(running ? "..." : this.plugin.t("Send"));
     this.stopBtn.toggleClass("hidden", !running);
     this.sessionSelect.disabled = running;
     this.updateSessionBtnStates();
@@ -1087,7 +1094,7 @@ private addErrorBubble(msg: string): void {
     const row = this.messagesEl.createDiv({
       cls: "opencode-message opencode-message--assistant",
 });
-    this.metaWithCopy(row, "Opencode", () => rec.text);
+    this.metaWithCopy(row, this.plugin.t("Opencode"), () => rec.text);
     if (rec.reasoning && rec.reasoning.trim()) {
       const det = row.createEl("details", { cls: "opencode-reasoning" });
       det.createEl("summary").setText("Ragionamento");
@@ -1108,7 +1115,7 @@ private addErrorBubble(msg: string): void {
       const cost = rec.cost ?? 0;
       row.createDiv({
         cls: "opencode-msg-stats",
-        text: `Token: ${total.toLocaleString("it-IT")} (in ${inp.toLocaleString("it-IT")} · out ${out.toLocaleString("it-IT")}) · Costo: ${cost.toFixed(4)} $`,
+        text: this.fmtTokens(total, inp, out, cost),
       });
     }
   }
@@ -1142,10 +1149,10 @@ private statsEl: HTMLElement;
     private app: App,
     private view: ChatView
 ) {
-    this.view.metaWithCopy(this.row, "Opencode", () => this.rawText);
+    this.view.metaWithCopy(this.row, this.view.plugin.t("Opencode"), () => this.rawText);
     this.reasoningEl = this.row.createEl("details", { cls: "opencode-reasoning hidden" });
     const summary = this.reasoningEl.createEl("summary");
-    summary.setText("Ragionamento");
+    summary.setText(this.view.plugin.t("Reasoning"));
     this.reasoningContent = this.reasoningEl.createDiv({ cls: "opencode-reasoning-content" });
 
     this.stepsEl = this.row.createDiv({ cls: "opencode-steps" });
@@ -1156,9 +1163,9 @@ private statsEl: HTMLElement;
 
 setText(text: string): void {
     this.rawText = text;
-    // Sotto i 30k caratteri ripristina il rendering markdown in streaming
-    // (come nel comportamento originale). Oltre quella soglia il re-render
-    // markdown diventerebbe O(n²) e bloccherebbe la UI: passiamo al testo grezzo.
+    // Below 30k chars the streaming markdown rendering is used
+    // (as in the original behavior). Above that threshold re-rendering
+    // markdown would be O(n²) and freeze the UI: we fall back to raw text.
     if (text.length <= 30000) {
       this.scheduleRender();
     } else {
@@ -1249,7 +1256,7 @@ addStep(step: StepInfo): void {
 
   private buildStepDetails(main: HTMLElement, step: StepInfo): void {
     const det = main.createEl("details", { cls: "opencode-step-details" });
-    det.createEl("summary").setText("Dettagli");
+    det.createEl("summary").setText(this.view.plugin.t("Details"));
     const pre = det.createEl("pre", { cls: "opencode-step-io" });
     pre.setText(this.serializeStep(step));
   }
@@ -1261,16 +1268,16 @@ private serializeStep(step: StepInfo): string {
       return s.length > 4000 ? s.slice(0, 4000) + "…" : s;
     };
     if (step.input !== undefined && step.input !== null) {
-      parts.push("INPUT:\n" + fmt(step.input));
+      parts.push(this.view.plugin.t("INPUT:") + "\n" + fmt(step.input));
     }
     if (step.output !== undefined && step.output !== null) {
-      parts.push("OUTPUT:\n" + fmt(step.output));
+      parts.push(this.view.plugin.t("OUTPUT:") + "\n" + fmt(step.output));
     }
-    return parts.join("\n\n---\n\n") || "(nessun dettaglio)";
+    return parts.join("\n\n---\n\n") || this.view.plugin.t("(no details)");
   }
 
   private stepTitle(step: StepInfo): string {
-    const t = String(step.title || step.tool || "Strumento");
+    const t = String(step.title || step.tool || this.view.plugin.t("Tool"));
     return t.length > 120 ? t.slice(0, 117) + "…" : t;
   }
 
@@ -1284,7 +1291,7 @@ private serializeStep(step: StepInfo): string {
       const cost = info.cost ?? 0;
       this.statsEl.removeClass("hidden");
       this.statsEl.setText(
-        `Token: ${total.toLocaleString("it-IT")} (in ${input.toLocaleString("it-IT")} · out ${output.toLocaleString("it-IT")}) · Costo: ${cost.toFixed(4)} $`
+        this.view.fmtTokens(total, input, output, cost)
       );
     }
   }
@@ -1300,8 +1307,8 @@ private serializeStep(step: StepInfo): string {
 
 finalize(): void {
     this.contentEl.empty();
-    // Markdown una sola volta, ma solo se il testo non è enorme (il render di
-    // centinaia di KB bloccherebbe la UI). Oltre la soglia resta il testo grezzo.
+    // Render markdown once, but only if the text is not huge (rendering
+    // hundreds of KB would freeze the UI). Above the threshold keep raw text.
     if (this.rawText.trim() && this.rawText.length <= 30000) {
       MarkdownRenderer.render(this.app, this.rawText, this.contentEl, "", this.view);
     } else if (this.rawText.trim()) {
