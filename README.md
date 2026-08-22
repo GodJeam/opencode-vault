@@ -9,12 +9,15 @@ An **Obsidian** plugin that integrates **opencode** directly into your vault: ch
 - **Chat with opencode** in an Obsidian pane, with streaming responses and Markdown rendering.
 - **Quick commands**: `/` for commands (model, new session, current note, attach file, stats, pin, rename), `@` to attach vault files, `!` for quick actions.
 - **Inline model picker** in the prompt box (list shown above the composer, like opencode desktop).
-- **Multiple chat windows**: side-by-side chat panes, each with its own session.
+- **Multiple chat windows**: side-by-side chat panes, each with its own session, so you can manage several sessions at the same time.
 - **Session management**: pin, rename, delete; the list shows pinned sessions plus the 10 most recent.
 - **Persistent per-session history** stored in Obsidian (last 100 messages per session).
 - **Reasoning and executed steps**: shows the model's reasoning and the tools used (with expandable input/output).
 - **Token and cost stats**: per-message and totals (5 hours, week, month).
+- **Live activity counter**: shows how many events are arriving during a response, making it easy to tell whether a long task is still working.
+- **Copy responses**: a one-click copy button on every message, plus normal mouse text selection.
 - **Continue past the context limit**: when a session reaches its token limit, a command summarizes/continues in a new session (with fallback on local history).
+- **Language**: English by default, optional Italian (Settings → Language).
 
 ## Requirements
 
@@ -62,6 +65,7 @@ npm run build
 - Open the chat from the sidebar icon or the command palette (`Ctrl+P` → "New opencode chat").
 - In the plugin settings, verify the binary path (default `opencode`) and the model.
 - Use **"Continue in a new session (by summarizing)"** to keep going when a session saturates its context.
+- The interface is in **English** by default; switch to Italian in Settings → Language (reload Obsidian to apply everywhere).
 
 ## Structure
 
@@ -70,6 +74,7 @@ npm run build
 - `src/opencodeRunner.ts` — CLI execution and event parsing
 - `src/settings.ts` — settings
 - `src/modals.ts` — modal dialogs (rename, stats, confirm, attachments)
+- `src/i18n.ts` — translations (English default, Italian optional)
 
 ## License
 
