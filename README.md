@@ -19,6 +19,7 @@ An **Obsidian** plugin that integrates **opencode** directly into your vault: ch
 - **Copy responses**: a one-click copy button on every message, plus normal mouse text selection.
 - **Continue past the context limit**: when a session reaches its token limit, a command summarizes/continues in a new session (with fallback on local history).
 - **Language**: English by default, optional Italian (Settings → Language).
+- **Document conversion**: attached documents (PDF, Word, Excel, etc.) are converted to Markdown with [anydoc](https://github.com/firecrawl/anydoc) before being sent, so any model can read them.
 
 ## Requirements
 

@@ -1769,8 +1769,11 @@ var OpencodeRunner = class {
     const hash = (0, import_crypto.createHash)("sha256").update(absPath).digest("hex").slice(0, 16);
     const dir = (0, import_path.join)((0, import_os.tmpdir)(), "opencode-vault-anydoc");
     (0, import_fs.mkdirSync)(dir, { recursive: true });
+    const ext = (0, import_path.extname)(absPath) || ".pdf";
+    const cleanInput = (0, import_path.join)(dir, "in-" + hash + ext);
+    (0, import_fs.copyFileSync)(absPath, cleanInput);
     const outPath = (0, import_path.join)(dir, hash + ".md");
-    await this.convertWithAnydoc(absPath, outPath);
+    await this.convertWithAnydoc(cleanInput, outPath);
     return outPath;
   }
   async convertWithAnydoc(inputPath, outputPath) {

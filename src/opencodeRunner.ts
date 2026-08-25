@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess, type SpawnOptions } from "child_process";
 import { createHash } from "crypto";
-import { existsSync, mkdirSync, readFileSync } from "fs";
-import { basename, dirname, join } from "path";
+import { copyFileSync, existsSync, mkdirSync, readFileSync } from "fs";
+import { basename, dirname, extname, join } from "path";
 import { tmpdir } from "os";
 import { FileSystemAdapter } from "obsidian";
 import type OpencodePlugin from "./main";
@@ -78,8 +78,14 @@ export class OpencodeRunner {
     const hash = createHash("sha256").update(absPath).digest("hex").slice(0, 16);
     const dir = join(tmpdir(), "opencode-vault-anydoc");
     mkdirSync(dir, { recursive: true });
+    // Copy to a temp path WITHOUT spaces: on Windows the anydoc shim is run via
+    // the shell, and a path with spaces gets split into multiple arguments
+    // ("one document per invocation"). The temp dir is space-free.
+    const ext = extname(absPath) || ".pdf";
+    const cleanInput = join(dir, "in-" + hash + ext);
+    copyFileSync(absPath, cleanInput);
     const outPath = join(dir, hash + ".md");
-    await this.convertWithAnydoc(absPath, outPath);
+    await this.convertWithAnydoc(cleanInput, outPath);
     return outPath;
   }
 
