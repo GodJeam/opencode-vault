@@ -1,6 +1,12 @@
 import { App, DropdownComponent, Notice, PluginSettingTab, Setting } from "obsidian";
 import type OpencodePlugin from "./main";
+import { PromptModal } from "./modals";
 import type { Language } from "./i18n";
+
+export interface PromptTemplate {
+  name: string;
+  text: string;
+}
 
 export interface OpencodeSettings {
   language: Language;
@@ -14,6 +20,7 @@ export interface OpencodeSettings {
   showToolIO: boolean;
   sessionId: string;
   pinned: string[];
+  prompts: PromptTemplate[];
 }
 
 export const DEFAULT_SETTINGS: OpencodeSettings = {
@@ -28,6 +35,7 @@ export const DEFAULT_SETTINGS: OpencodeSettings = {
   showToolIO: true,
   sessionId: "",
   pinned: [],
+  prompts: [],
 };
 
 export class OpencodeSettingTab extends PluginSettingTab {
@@ -203,6 +211,35 @@ export class OpencodeSettingTab extends PluginSettingTab {
           })
       );
 
+    containerEl.createEl("h2", { text: t("Prompt templates") });
+    const prompts = this.plugin.settings.prompts ?? [];
+    if (prompts.length === 0) {
+      containerEl.createDiv({
+        text: t("No saved prompts — add them in Settings"),
+        cls: "opencode-stats-loading",
+      });
+    }
+    for (let i = 0; i < prompts.length; i++) {
+      const p = prompts[i];
+      const s = new Setting(containerEl)
+        .setName(p.name || t("(untitled)"))
+        .setDesc(p.text.length > 120 ? p.text.slice(0, 117) + "…" : p.text);
+      s.addButton((b) =>
+        b.setButtonText(t("Edit")).onClick(() => this.editPrompt(i))
+      );
+      s.addButton((b) =>
+        b.setButtonText(t("Delete")).setWarning().onClick(async () => {
+          this.plugin.settings.prompts.splice(i, 1);
+          await this.plugin.saveSettings();
+          this.display();
+        })
+      );
+    }
+    new Setting(containerEl)
+      .addButton((b) =>
+        b.setButtonText(t("Add prompt")).setCta().onClick(() => this.editPrompt(-1))
+      );
+
     new Setting(containerEl)
       .setName(t("Test connection"))
       .setDesc(t("Run 'opencode --version' to verify the binary is reachable."))
@@ -221,6 +258,27 @@ export class OpencodeSettingTab extends PluginSettingTab {
           }
         })
       );
+  }
+
+  private editPrompt(index: number): void {
+    const prompts = this.plugin.settings.prompts ?? [];
+    const existing = index >= 0 ? prompts[index] : null;
+    new PromptModal(
+      this.app,
+      this.plugin,
+      existing ? existing.name : "",
+      existing ? existing.text : "",
+      (name, text) => {
+        if (existing) {
+          existing.name = name;
+          existing.text = text;
+        } else {
+          prompts.push({ name, text });
+        }
+        void this.plugin.saveSettings();
+        this.display();
+      }
+    ).open();
   }
 
   private async populateModelDropdown(dd: DropdownComponent): Promise<void> {

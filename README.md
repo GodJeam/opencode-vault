@@ -7,7 +7,8 @@ An **Obsidian** plugin that integrates **opencode** directly into your vault: ch
 ## Features
 
 - **Chat with opencode** in an Obsidian pane, with streaming responses and Markdown rendering.
-- **Quick commands**: `/` for commands (model, new session, current note, attach file, stats, pin, rename), `@` to attach vault files, `!` for quick actions.
+- **Quick commands**: `/` for commands (model, new session, current note, attach file, stats, pin, rename, prompt), `@` to attach vault files, `!` for quick actions.
+- **Prompt templates**: save reusable prompts in the settings and insert them in the chat with `/prompt`.
 - **Inline model picker** in the prompt box (list shown above the composer, like opencode desktop).
 - **Multiple chat windows**: side-by-side chat panes, each with its own session, so you can manage several sessions at the same time.
 - **Session management**: pin, rename, delete; the list shows pinned sessions plus the 10 most recent.

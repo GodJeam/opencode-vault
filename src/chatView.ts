@@ -688,16 +688,64 @@ action: () => {
     return { char: ch, start, query: token.slice(1).toLowerCase() };
   }
 
-  private buildSuggestItems(char: string, query: string): SuggestItem[] {
+private buildSuggestItems(char: string, query: string): SuggestItem[] {
     let items: SuggestItem[];
-    if (char === "/") items = this.commandItems();
-    else if (char === "@") items = this.fileItems();
-    else items = this.actionItems();
+    if (char === "/") {
+      items = query.toLowerCase().startsWith("prompt")
+        ? this.promptItems(query.slice(6))
+        : this.commandItems();
+    } else if (char === "@") {
+      items = this.fileItems();
+    } else {
+      items = this.actionItems();
+    }
     const q = query.toLowerCase();
     if (!q) return items;
     return items.filter(
       (x) => x.label.toLowerCase().includes(q) || (x.desc ?? "").toLowerCase().includes(q)
     );
+  }
+
+  // /prompt: pick a saved prompt template; its text is inserted into the composer.
+  private promptItems(sub: string): SuggestItem[] {
+    const prompts = this.plugin.settings.prompts ?? [];
+    if (prompts.length === 0) {
+      return [
+        {
+          label: "/prompt",
+          desc: this.plugin.t("No saved prompts — add them in Settings"),
+          action: () => this.removeTrigger(),
+        },
+      ];
+    }
+    const q = sub.trim().toLowerCase();
+    const list = q ? prompts.filter((p) => p.name.toLowerCase().includes(q)) : prompts;
+    return list.map((p) => ({
+      label: p.name,
+      desc: p.text.length > 80 ? p.text.slice(0, 77) + "…" : p.text,
+      action: () => this.insertPromptText(p.text),
+    }));
+  }
+
+  private insertPromptText(text: string): void {
+    const tr = this.suggestTrigger;
+    if (tr) {
+      const v = this.inputEl.value;
+      const end = this.inputEl.selectionStart ?? v.length;
+      this.inputEl.value = v.slice(0, tr.start) + text + v.slice(end);
+      const pos = tr.start + text.length;
+      this.inputEl.setSelectionRange(pos, pos);
+    }
+    this.closeSuggest();
+    this.inputEl.focus();
+  }
+
+  private startPromptSelection(): void {
+    this.closeSuggest();
+    this.inputEl.value = "/prompt ";
+    this.inputEl.setSelectionRange(this.inputEl.value.length, this.inputEl.value.length);
+    this.inputEl.focus();
+    this.onInputChange();
   }
 
   private commandItems(): SuggestItem[] {
@@ -751,11 +799,19 @@ action: () => {
         },
       },
       {
-        label: this.plugin.t("/rename"),
+label: this.plugin.t("/rename"),
         desc: this.plugin.t("Rename session"),
         action: () => {
           this.removeTrigger();
           this.renameCurrentSession();
+        },
+      },
+      {
+        label: this.plugin.t("/prompt"),
+        desc: this.plugin.t("Insert a saved prompt"),
+        action: () => {
+          this.removeTrigger();
+          this.startPromptSelection();
         },
       },
     ];

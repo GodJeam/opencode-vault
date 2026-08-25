@@ -29,7 +29,176 @@ var import_obsidian5 = require("obsidian");
 var import_obsidian3 = require("obsidian");
 
 // src/settings.ts
+var import_obsidian2 = require("obsidian");
+
+// src/modals.ts
 var import_obsidian = require("obsidian");
+var RenameModal = class extends import_obsidian.Modal {
+  constructor(app, plugin, current, onSubmit) {
+    super(app);
+    this.plugin = plugin;
+    this.current = current;
+    this.onSubmit = onSubmit;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    const t = (s) => this.plugin.t(s);
+    contentEl.empty();
+    contentEl.createEl("h3", { text: t("Rename session") });
+    let input;
+    new import_obsidian.Setting(contentEl).setName(t("New title")).addText((txt) => {
+      input = txt.inputEl;
+      txt.setValue(this.current);
+      txt.inputEl.select();
+    });
+    new import_obsidian.Setting(contentEl).addButton(
+      (b) => b.setButtonText(t("Save")).setCta().onClick(() => {
+        if (!input) return;
+        const v = input.value.trim();
+        if (!v) {
+          new import_obsidian.Notice(t("The title cannot be empty."));
+          return;
+        }
+        this.onSubmit(v);
+        this.close();
+      })
+    ).addButton((b) => b.setButtonText(t("Cancel")).onClick(() => this.close()));
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+var StatsModal = class extends import_obsidian.Modal {
+  constructor(app, plugin) {
+    super(app);
+    this.plugin = plugin;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    const t = (s) => this.plugin.t(s);
+    contentEl.empty();
+    contentEl.createEl("h3", { text: t("Token usage and costs") });
+    const status = contentEl.createDiv({ cls: "opencode-stats-loading", text: t("Loading...") });
+    this.plugin.runner.getUsageStats().then((s) => {
+      status.remove();
+      this.renderWindow(contentEl, t("Last 5 hours"), s.h5);
+      this.renderWindow(contentEl, t("Last week"), s.week);
+      this.renderWindow(contentEl, t("Last month"), s.month);
+    }).catch((e) => {
+      status.setText(`${t("Error:")} ${e.message}`);
+    });
+  }
+  renderWindow(container, label, w) {
+    const locale = this.plugin.settings.language === "it" ? "it-IT" : "en-US";
+    const t = (s) => this.plugin.t(s);
+    container.createEl("h4", { text: label });
+    new import_obsidian.Setting(container).setName(t("Input tokens")).setDesc(w.input.toLocaleString(locale));
+    new import_obsidian.Setting(container).setName(t("Output tokens")).setDesc(w.output.toLocaleString(locale));
+    new import_obsidian.Setting(container).setName(t("Total tokens")).setDesc((w.input + w.output).toLocaleString(locale));
+    new import_obsidian.Setting(container).setName(t("Cost")).setDesc(`${w.cost.toFixed(4)} $`);
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+var ConfirmModal = class extends import_obsidian.Modal {
+  constructor(app, plugin, title, message, confirmLabel, onConfirm) {
+    super(app);
+    this.plugin = plugin;
+    this.title = title;
+    this.message = message;
+    this.confirmLabel = confirmLabel;
+    this.onConfirm = onConfirm;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    const t = (s) => this.plugin.t(s);
+    contentEl.empty();
+    contentEl.createEl("h3", { text: this.title });
+    contentEl.createDiv({ cls: "opencode-confirm-message", text: this.message });
+    new import_obsidian.Setting(contentEl).addButton(
+      (b) => b.setButtonText(this.confirmLabel).setWarning().onClick(() => {
+        this.onConfirm();
+        this.close();
+      })
+    ).addButton((b) => b.setButtonText(t("Cancel")).onClick(() => this.close()));
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+var PromptModal = class extends import_obsidian.Modal {
+  constructor(app, plugin, initialName, initialText, onSave) {
+    super(app);
+    this.plugin = plugin;
+    this.initialName = initialName;
+    this.initialText = initialText;
+    this.onSave = onSave;
+  }
+  onOpen() {
+    const { contentEl } = this;
+    const t = (s) => this.plugin.t(s);
+    contentEl.empty();
+    contentEl.createEl("h3", { text: t("Prompt") });
+    let nameInput;
+    let textArea;
+    new import_obsidian.Setting(contentEl).setName(t("Prompt name")).addText((x) => {
+      nameInput = x.inputEl;
+      x.setValue(this.initialName);
+    });
+    new import_obsidian.Setting(contentEl).setName(t("Prompt text")).addTextArea((x) => {
+      textArea = x.inputEl;
+      x.setValue(this.initialText);
+      x.inputEl.rows = 10;
+    });
+    new import_obsidian.Setting(contentEl).addButton(
+      (b) => b.setButtonText(t("Save")).setCta().onClick(() => {
+        if (!nameInput || !textArea) return;
+        const name = nameInput.value.trim();
+        const text = textArea.value;
+        if (!name || !text) {
+          new import_obsidian.Notice(t("The prompt cannot be empty."));
+          return;
+        }
+        this.onSave(name, text);
+        this.close();
+      })
+    ).addButton((b) => b.setButtonText(t("Cancel")).onClick(() => this.close()));
+  }
+  onClose() {
+    this.contentEl.empty();
+  }
+};
+var FileSuggestModal = class extends import_obsidian.SuggestModal {
+  constructor(app, plugin, onPick) {
+    super(app);
+    this.plugin = plugin;
+    this.onPick = onPick;
+    const t = (s) => this.plugin.t(s);
+    this.setPlaceholder(t("Search a vault file to attach..."));
+    this.setInstructions([
+      { command: "\u2191\u2193", purpose: t("navigate") },
+      { command: "\u21B5", purpose: t("attach") },
+      { command: "esc", purpose: t("close") }
+    ]);
+  }
+  getItems() {
+    return this.app.vault.getFiles().sort((a, b) => a.path.localeCompare(b.path));
+  }
+  getSuggestions(query) {
+    const q = query.trim().toLowerCase();
+    if (!q) return this.getItems();
+    return this.getItems().filter((f) => f.path.toLowerCase().includes(q));
+  }
+  renderSuggestion(file, el) {
+    el.createEl("div", { text: file.path });
+  }
+  onChooseSuggestion(file) {
+    this.onPick(file);
+  }
+};
+
+// src/settings.ts
 var DEFAULT_SETTINGS = {
   language: "en",
   binaryPath: "opencode",
@@ -41,29 +210,31 @@ var DEFAULT_SETTINGS = {
   showThinking: false,
   showToolIO: true,
   sessionId: "",
-  pinned: []
+  pinned: [],
+  prompts: []
 };
-var OpencodeSettingTab = class extends import_obsidian.PluginSettingTab {
+var OpencodeSettingTab = class extends import_obsidian2.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
   }
   display() {
+    var _a;
     const { containerEl } = this;
     const t = (s) => this.plugin.t(s);
     containerEl.empty();
     containerEl.createEl("h2", { text: "Opencode Vault" });
-    new import_obsidian.Setting(containerEl).setName(t("Language")).setDesc(t(
+    new import_obsidian2.Setting(containerEl).setName(t("Language")).setDesc(t(
       "Interface language. English is the default. Some command names update after reloading Obsidian."
     )).addDropdown(
       (dd) => dd.addOption("en", t("English")).addOption("it", t("Italian")).setValue(this.plugin.settings.language).onChange(async (value) => {
         this.plugin.settings.language = value;
         await this.plugin.saveSettings();
-        new import_obsidian.Notice(t("Language changed. Reload Obsidian to apply it everywhere."));
+        new import_obsidian2.Notice(t("Language changed. Reload Obsidian to apply it everywhere."));
         this.display();
       })
     );
-    new import_obsidian.Setting(containerEl).setName(t("Binary path")).setDesc(t(
+    new import_obsidian2.Setting(containerEl).setName(t("Binary path")).setDesc(t(
       "Command or full path to the opencode executable. Usually 'opencode' is enough if it is on your PATH. If you have issues, use the full path (e.g. on Windows .../npm/opencode.cmd, on macOS/Linux .../bin/opencode)."
     )).addText(
       (text) => text.setPlaceholder("opencode").setValue(this.plugin.settings.binaryPath).onChange(async (value) => {
@@ -71,7 +242,7 @@ var OpencodeSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName(t("Convert documents with anydoc")).setDesc(t(
+    new import_obsidian2.Setting(containerEl).setName(t("Convert documents with anydoc")).setDesc(t(
       "Run anydoc on attached documents (PDF, Word, Excel, etc.) and attach them as Markdown instead of the original file. Install with: npm install -g @firecrawl/anydoc"
     )).addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.anydocEnabled).onChange(async (value) => {
@@ -79,30 +250,30 @@ var OpencodeSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName(t("Anydoc binary path")).setDesc(t("Command or full path to the anydoc executable (npm install -g @firecrawl/anydoc).")).addText(
+    new import_obsidian2.Setting(containerEl).setName(t("Anydoc binary path")).setDesc(t("Command or full path to the anydoc executable (npm install -g @firecrawl/anydoc).")).addText(
       (text) => text.setPlaceholder("anydoc").setValue(this.plugin.settings.anydocBinary).onChange(async (value) => {
         this.plugin.settings.anydocBinary = value.trim() || "anydoc";
         await this.plugin.saveSettings();
       })
     );
-    const modelSetting = new import_obsidian.Setting(containerEl).setName(t("Model")).setDesc(t(
+    const modelSetting = new import_obsidian2.Setting(containerEl).setName(t("Model")).setDesc(t(
       "Pick a model from the opencode list. The same selector is also available in the chat bar. The default uses the OpenCode Go provider (the same as the desktop app)."
     ));
     modelSetting.addDropdown((dd) => {
       this.populateModelDropdown(dd);
     });
-    new import_obsidian.Setting(containerEl).setName(t("Refresh model list")).setDesc(t("Reload the list of available models from opencode.")).addButton(
+    new import_obsidian2.Setting(containerEl).setName(t("Refresh model list")).setDesc(t("Reload the list of available models from opencode.")).addButton(
       (btn) => btn.setButtonText(t("Refresh")).onClick(() => {
         this.display();
       })
     );
-    new import_obsidian.Setting(containerEl).setName(t("Agent")).setDesc(t("The opencode agent to use (e.g. build, plan). Leave empty for the default.")).addText(
+    new import_obsidian2.Setting(containerEl).setName(t("Agent")).setDesc(t("The opencode agent to use (e.g. build, plan). Leave empty for the default.")).addText(
       (text) => text.setPlaceholder(t("e.g. build")).setValue(this.plugin.settings.agent).onChange(async (value) => {
         this.plugin.settings.agent = value.trim();
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName(t("Session ID")).setDesc(t(
+    new import_obsidian2.Setting(containerEl).setName(t("Session ID")).setDesc(t(
       "The persistent session id used for the chat. It is managed automatically: the first time a new session starts, then it is reused. Empty = new session on the next message."
     )).addText(
       (text) => text.setPlaceholder(t("(automatic)")).setValue(this.plugin.settings.sessionId).onChange(async (value) => {
@@ -110,14 +281,14 @@ var OpencodeSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName(t("Reset session")).setDesc(t("Clear the saved session and start from scratch on the next message.")).addButton(
+    new import_obsidian2.Setting(containerEl).setName(t("Reset session")).setDesc(t("Clear the saved session and start from scratch on the next message.")).addButton(
       (btn) => btn.setButtonText(t("Reset")).onClick(async () => {
         this.plugin.settings.sessionId = "";
         await this.plugin.saveSettings();
-        new import_obsidian.Notice(t("Session reset: the next message will start from a new session."));
+        new import_obsidian2.Notice(t("Session reset: the next message will start from a new session."));
       })
     );
-    new import_obsidian.Setting(containerEl).setName(t("Auto-approve permissions")).setDesc(t(
+    new import_obsidian2.Setting(containerEl).setName(t("Auto-approve permissions")).setDesc(t(
       "Automatically allow the tool permissions (bash, file edits, etc.). In non-interactive mode opencode would deny everything without this flag. Turn it off for extra safety."
     )).addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.autoApprove).onChange(async (value) => {
@@ -125,13 +296,13 @@ var OpencodeSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName(t("Show reasoning")).setDesc(t("Show the model's reasoning blocks (uses the --thinking flag).")).addToggle(
+    new import_obsidian2.Setting(containerEl).setName(t("Show reasoning")).setDesc(t("Show the model's reasoning blocks (uses the --thinking flag).")).addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.showThinking).onChange(async (value) => {
         this.plugin.settings.showThinking = value;
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName(t("Show tool details")).setDesc(t(
+    new import_obsidian2.Setting(containerEl).setName(t("Show tool details")).setDesc(t(
       "Show the input and output of every tool executed during the request, in collapsible blocks."
     )).addToggle(
       (toggle) => toggle.setValue(this.plugin.settings.showToolIO).onChange(async (value) => {
@@ -139,21 +310,67 @@ var OpencodeSettingTab = class extends import_obsidian.PluginSettingTab {
         await this.plugin.saveSettings();
       })
     );
-    new import_obsidian.Setting(containerEl).setName(t("Test connection")).setDesc(t("Run 'opencode --version' to verify the binary is reachable.")).addButton(
+    containerEl.createEl("h2", { text: t("Prompt templates") });
+    const prompts = (_a = this.plugin.settings.prompts) != null ? _a : [];
+    if (prompts.length === 0) {
+      containerEl.createDiv({
+        text: t("No saved prompts \u2014 add them in Settings"),
+        cls: "opencode-stats-loading"
+      });
+    }
+    for (let i = 0; i < prompts.length; i++) {
+      const p = prompts[i];
+      const s = new import_obsidian2.Setting(containerEl).setName(p.name || t("(untitled)")).setDesc(p.text.length > 120 ? p.text.slice(0, 117) + "\u2026" : p.text);
+      s.addButton(
+        (b) => b.setButtonText(t("Edit")).onClick(() => this.editPrompt(i))
+      );
+      s.addButton(
+        (b) => b.setButtonText(t("Delete")).setWarning().onClick(async () => {
+          this.plugin.settings.prompts.splice(i, 1);
+          await this.plugin.saveSettings();
+          this.display();
+        })
+      );
+    }
+    new import_obsidian2.Setting(containerEl).addButton(
+      (b) => b.setButtonText(t("Add prompt")).setCta().onClick(() => this.editPrompt(-1))
+    );
+    new import_obsidian2.Setting(containerEl).setName(t("Test connection")).setDesc(t("Run 'opencode --version' to verify the binary is reachable.")).addButton(
       (btn) => btn.setButtonText(t("Test")).onClick(async () => {
         btn.setDisabled(true);
         btn.setButtonText(t("Testing..."));
         try {
           const version = await this.plugin.runner.getVersion();
-          new import_obsidian.Notice(`${t("Opencode found:")} ${version}`);
+          new import_obsidian2.Notice(`${t("Opencode found:")} ${version}`);
         } catch (e) {
-          new import_obsidian.Notice(`${t("Error:")} ${e.message}`);
+          new import_obsidian2.Notice(`${t("Error:")} ${e.message}`);
         } finally {
           btn.setDisabled(false);
           btn.setButtonText(t("Test"));
         }
       })
     );
+  }
+  editPrompt(index) {
+    var _a;
+    const prompts = (_a = this.plugin.settings.prompts) != null ? _a : [];
+    const existing = index >= 0 ? prompts[index] : null;
+    new PromptModal(
+      this.app,
+      this.plugin,
+      existing ? existing.name : "",
+      existing ? existing.text : "",
+      (name, text) => {
+        if (existing) {
+          existing.name = name;
+          existing.text = text;
+        } else {
+          prompts.push({ name, text });
+        }
+        void this.plugin.saveSettings();
+        this.display();
+      }
+    ).open();
   }
   async populateModelDropdown(dd) {
     const t = (s) => this.plugin.t(s);
@@ -325,6 +542,17 @@ var IT = {
   "Token and cost statistics": "Statistiche token e costi",
   "/pin": "/pin",
   "/rename": "/rinomina",
+  "/prompt": "/prompt",
+  "Insert a saved prompt": "Inserisci un prompt salvato",
+  "Prompt templates": "Modelli di prompt",
+  "Add prompt": "Aggiungi prompt",
+  "Edit": "Modifica",
+  "Prompt": "Prompt",
+  "Prompt name": "Nome prompt",
+  "Prompt text": "Testo prompt",
+  "No saved prompts \u2014 add them in Settings": "Nessun prompt salvato \u2014 aggiungili nelle impostazioni",
+  "The prompt cannot be empty.": "Il prompt non pu\xF2 essere vuoto.",
+  "(untitled)": "(senza titolo)",
   "Attached": "Allegato",
   "current note": "nota corrente",
   "Attach the open note as context": "Allega la nota aperta come contesto",
@@ -351,131 +579,6 @@ function substitute(template, ...args) {
     return String((_a = args[Number(n) - 1]) != null ? _a : "");
   });
 }
-
-// src/modals.ts
-var import_obsidian2 = require("obsidian");
-var RenameModal = class extends import_obsidian2.Modal {
-  constructor(app, plugin, current, onSubmit) {
-    super(app);
-    this.plugin = plugin;
-    this.current = current;
-    this.onSubmit = onSubmit;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    const t = (s) => this.plugin.t(s);
-    contentEl.empty();
-    contentEl.createEl("h3", { text: t("Rename session") });
-    let input;
-    new import_obsidian2.Setting(contentEl).setName(t("New title")).addText((txt) => {
-      input = txt.inputEl;
-      txt.setValue(this.current);
-      txt.inputEl.select();
-    });
-    new import_obsidian2.Setting(contentEl).addButton(
-      (b) => b.setButtonText(t("Save")).setCta().onClick(() => {
-        if (!input) return;
-        const v = input.value.trim();
-        if (!v) {
-          new import_obsidian2.Notice(t("The title cannot be empty."));
-          return;
-        }
-        this.onSubmit(v);
-        this.close();
-      })
-    ).addButton((b) => b.setButtonText(t("Cancel")).onClick(() => this.close()));
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
-var StatsModal = class extends import_obsidian2.Modal {
-  constructor(app, plugin) {
-    super(app);
-    this.plugin = plugin;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    const t = (s) => this.plugin.t(s);
-    contentEl.empty();
-    contentEl.createEl("h3", { text: t("Token usage and costs") });
-    const status = contentEl.createDiv({ cls: "opencode-stats-loading", text: t("Loading...") });
-    this.plugin.runner.getUsageStats().then((s) => {
-      status.remove();
-      this.renderWindow(contentEl, t("Last 5 hours"), s.h5);
-      this.renderWindow(contentEl, t("Last week"), s.week);
-      this.renderWindow(contentEl, t("Last month"), s.month);
-    }).catch((e) => {
-      status.setText(`${t("Error:")} ${e.message}`);
-    });
-  }
-  renderWindow(container, label, w) {
-    const locale = this.plugin.settings.language === "it" ? "it-IT" : "en-US";
-    const t = (s) => this.plugin.t(s);
-    container.createEl("h4", { text: label });
-    new import_obsidian2.Setting(container).setName(t("Input tokens")).setDesc(w.input.toLocaleString(locale));
-    new import_obsidian2.Setting(container).setName(t("Output tokens")).setDesc(w.output.toLocaleString(locale));
-    new import_obsidian2.Setting(container).setName(t("Total tokens")).setDesc((w.input + w.output).toLocaleString(locale));
-    new import_obsidian2.Setting(container).setName(t("Cost")).setDesc(`${w.cost.toFixed(4)} $`);
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
-var ConfirmModal = class extends import_obsidian2.Modal {
-  constructor(app, plugin, title, message, confirmLabel, onConfirm) {
-    super(app);
-    this.plugin = plugin;
-    this.title = title;
-    this.message = message;
-    this.confirmLabel = confirmLabel;
-    this.onConfirm = onConfirm;
-  }
-  onOpen() {
-    const { contentEl } = this;
-    const t = (s) => this.plugin.t(s);
-    contentEl.empty();
-    contentEl.createEl("h3", { text: this.title });
-    contentEl.createDiv({ cls: "opencode-confirm-message", text: this.message });
-    new import_obsidian2.Setting(contentEl).addButton(
-      (b) => b.setButtonText(this.confirmLabel).setWarning().onClick(() => {
-        this.onConfirm();
-        this.close();
-      })
-    ).addButton((b) => b.setButtonText(t("Cancel")).onClick(() => this.close()));
-  }
-  onClose() {
-    this.contentEl.empty();
-  }
-};
-var FileSuggestModal = class extends import_obsidian2.SuggestModal {
-  constructor(app, plugin, onPick) {
-    super(app);
-    this.plugin = plugin;
-    this.onPick = onPick;
-    const t = (s) => this.plugin.t(s);
-    this.setPlaceholder(t("Search a vault file to attach..."));
-    this.setInstructions([
-      { command: "\u2191\u2193", purpose: t("navigate") },
-      { command: "\u21B5", purpose: t("attach") },
-      { command: "esc", purpose: t("close") }
-    ]);
-  }
-  getItems() {
-    return this.app.vault.getFiles().sort((a, b) => a.path.localeCompare(b.path));
-  }
-  getSuggestions(query) {
-    const q = query.trim().toLowerCase();
-    if (!q) return this.getItems();
-    return this.getItems().filter((f) => f.path.toLowerCase().includes(q));
-  }
-  renderSuggestion(file, el) {
-    el.createEl("div", { text: file.path });
-  }
-  onChooseSuggestion(file) {
-    this.onPick(file);
-  }
-};
 
 // src/chatView.ts
 var CHAT_VIEW_TYPE = "opencode-chat-view";
@@ -1063,9 +1166,13 @@ var ChatView = class extends import_obsidian3.ItemView {
   }
   buildSuggestItems(char, query) {
     let items;
-    if (char === "/") items = this.commandItems();
-    else if (char === "@") items = this.fileItems();
-    else items = this.actionItems();
+    if (char === "/") {
+      items = query.toLowerCase().startsWith("prompt") ? this.promptItems(query.slice(6)) : this.commandItems();
+    } else if (char === "@") {
+      items = this.fileItems();
+    } else {
+      items = this.actionItems();
+    }
     const q = query.toLowerCase();
     if (!q) return items;
     return items.filter(
@@ -1074,6 +1181,47 @@ var ChatView = class extends import_obsidian3.ItemView {
         return x.label.toLowerCase().includes(q) || ((_a = x.desc) != null ? _a : "").toLowerCase().includes(q);
       }
     );
+  }
+  // /prompt: pick a saved prompt template; its text is inserted into the composer.
+  promptItems(sub) {
+    var _a;
+    const prompts = (_a = this.plugin.settings.prompts) != null ? _a : [];
+    if (prompts.length === 0) {
+      return [
+        {
+          label: "/prompt",
+          desc: this.plugin.t("No saved prompts \u2014 add them in Settings"),
+          action: () => this.removeTrigger()
+        }
+      ];
+    }
+    const q = sub.trim().toLowerCase();
+    const list = q ? prompts.filter((p) => p.name.toLowerCase().includes(q)) : prompts;
+    return list.map((p) => ({
+      label: p.name,
+      desc: p.text.length > 80 ? p.text.slice(0, 77) + "\u2026" : p.text,
+      action: () => this.insertPromptText(p.text)
+    }));
+  }
+  insertPromptText(text) {
+    var _a;
+    const tr = this.suggestTrigger;
+    if (tr) {
+      const v = this.inputEl.value;
+      const end = (_a = this.inputEl.selectionStart) != null ? _a : v.length;
+      this.inputEl.value = v.slice(0, tr.start) + text + v.slice(end);
+      const pos = tr.start + text.length;
+      this.inputEl.setSelectionRange(pos, pos);
+    }
+    this.closeSuggest();
+    this.inputEl.focus();
+  }
+  startPromptSelection() {
+    this.closeSuggest();
+    this.inputEl.value = "/prompt ";
+    this.inputEl.setSelectionRange(this.inputEl.value.length, this.inputEl.value.length);
+    this.inputEl.focus();
+    this.onInputChange();
   }
   commandItems() {
     return [
@@ -1131,6 +1279,14 @@ var ChatView = class extends import_obsidian3.ItemView {
         action: () => {
           this.removeTrigger();
           this.renameCurrentSession();
+        }
+      },
+      {
+        label: this.plugin.t("/prompt"),
+        desc: this.plugin.t("Insert a saved prompt"),
+        action: () => {
+          this.removeTrigger();
+          this.startPromptSelection();
         }
       }
     ];

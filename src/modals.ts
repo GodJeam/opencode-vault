@@ -125,6 +125,57 @@ export class ConfirmModal extends Modal {
   }
 }
 
+export class PromptModal extends Modal {
+  constructor(
+    app: App,
+    private plugin: OpencodePlugin,
+    private initialName: string,
+    private initialText: string,
+    private onSave: (name: string, text: string) => void
+  ) {
+    super(app);
+  }
+
+  onOpen(): void {
+    const { contentEl } = this;
+    const t = (s: string) => this.plugin.t(s);
+    contentEl.empty();
+    contentEl.createEl("h3", { text: t("Prompt") });
+
+    let nameInput: HTMLInputElement | undefined;
+    let textArea: HTMLTextAreaElement | undefined;
+    new Setting(contentEl).setName(t("Prompt name")).addText((x) => {
+      nameInput = x.inputEl;
+      x.setValue(this.initialName);
+    });
+    new Setting(contentEl).setName(t("Prompt text")).addTextArea((x) => {
+      textArea = x.inputEl;
+      x.setValue(this.initialText);
+      x.inputEl.rows = 10;
+    });
+
+    new Setting(contentEl)
+      .addButton((b) =>
+        b.setButtonText(t("Save")).setCta().onClick(() => {
+          if (!nameInput || !textArea) return;
+          const name = nameInput.value.trim();
+          const text = textArea.value;
+          if (!name || !text) {
+            new Notice(t("The prompt cannot be empty."));
+            return;
+          }
+          this.onSave(name, text);
+          this.close();
+        })
+      )
+      .addButton((b) => b.setButtonText(t("Cancel")).onClick(() => this.close()));
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+  }
+}
+
 export class FileSuggestModal extends SuggestModal<TFile> {
   constructor(app: App, private plugin: OpencodePlugin, private onPick: (file: TFile) => void) {
     super(app);
