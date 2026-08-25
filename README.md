@@ -14,7 +14,8 @@ An **Obsidian** plugin that integrates **opencode** directly into your vault: ch
 - **Persistent per-session history** stored in Obsidian (last 100 messages per session).
 - **Reasoning and executed steps**: shows the model's reasoning and the tools used (with expandable input/output).
 - **Token and cost stats**: per-message and totals (5 hours, week, month).
-- **Live activity counter**: shows how many events are arriving during a response, making it easy to tell whether a long task is still working.
+- **Live activity counter**: shows how many events are arriving during a response and the time since the last update, so it is easy to tell whether the model is still working or stuck.
+- **Session context usage**: a small bar in the chat footer shows the context window used (percentage and tokens) for the current session/model.
 - **Copy responses**: a one-click copy button on every message, plus normal mouse text selection.
 - **Continue past the context limit**: when a session reaches its token limit, a command summarizes/continues in a new session (with fallback on local history).
 - **Language**: English by default, optional Italian (Settings → Language).

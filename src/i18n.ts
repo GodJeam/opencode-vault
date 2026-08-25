@@ -98,6 +98,8 @@ const IT: Record<string, string> = {
   "Delete": "Elimina",
   "Cancel": "Annulla",
   "Context:": "Contesto:",
+  "last update $1s ago": "ultimo aggiornamento $1s fa",
+  "Possibly stuck": "Possibilmente bloccato",
   "with context:": "con contesto:",
   "Note added to context.": "Nota aggiunta al contesto.",
   "Image attached: check that the selected model supports images (vision).":
@@ -190,4 +192,8 @@ const IT: Record<string, string> = {
 export function translate(lang: Language, text: string): string {
   if (lang === "it") return IT[text] ?? text;
   return text;
+}
+
+export function substitute(template: string, ...args: (string | number)[]): string {
+  return template.replace(/\$(\d+)/g, (_, n) => String(args[Number(n) - 1] ?? ""));
 }

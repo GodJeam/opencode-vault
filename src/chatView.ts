@@ -3,6 +3,7 @@ import type OpencodePlugin from "./main";
 import type { HistoryAssistant } from "./main";
 import { DEFAULT_SETTINGS } from "./settings";
 import type { FinishInfo, RunHandle, StepInfo } from "./opencodeRunner";
+import { substitute } from "./i18n";
 import { ConfirmModal, FileSuggestModal, RenameModal, StatsModal } from "./modals";
 
 export const CHAT_VIEW_TYPE = "opencode-chat-view";
@@ -39,7 +40,9 @@ export class ChatView extends ItemView {
   private modelBtn!: HTMLButtonElement;
   private sendBtn!: HTMLButtonElement;
   private stopBtn!: HTMLButtonElement;
-  private statsBar!: HTMLElement;
+private statsBar!: HTMLElement;
+  private contextEl!: HTMLElement;
+  private contextFillEl!: HTMLElement;
   private attachmentsBar!: HTMLElement;
   private suggestEl!: HTMLElement;
   private attachments: { path: string; label: string; image?: boolean }[] = [];
@@ -53,6 +56,11 @@ export class ChatView extends ItemView {
   private stoppedByUser = false;
   private lastStderr = "";
   private stats: SessionStats = { input: 0, output: 0, total: 0, cost: 0 };
+  private contextLimit = 0;
+  private contextUsed = 0;
+  private contextBaseInput = 0;
+  private contextRunInput = 0;
+  private activityTimer: number | null = null;
   private suggestItems: SuggestItem[] = [];
   private suggestIndex = 0;
   private suggestOpen = false;
@@ -341,18 +349,62 @@ onClose(): Promise<void> {
     this.pinBtn.toggleClass("is-active", pinned);
   }
 
-  private buildStatsBar(container: HTMLElement): void {
+private buildStatsBar(container: HTMLElement): void {
     this.statsBar = container.createDiv({ cls: "opencode-stats-bar" });
+    const ctx = this.statsBar.createSpan({ cls: "opencode-context" });
+    const track = ctx.createSpan({ cls: "opencode-context-track" });
+    this.contextFillEl = track.createSpan({ cls: "opencode-context-fill" });
+    this.contextEl = ctx.createSpan({ cls: "opencode-context-text" });
+    this.updateContextUsage();
     this.updateStatsBar();
   }
 
   private updateStatsBar(): void {
     if (!this.statsBar) return;
-    this.statsBar.empty();
+    const existing = this.statsBar.querySelector(".opencode-stats-text");
+    if (existing) existing.remove();
     this.statsBar.createSpan({
       text: this.fmtTokens(this.stats.total, this.stats.input, this.stats.output, this.stats.cost),
       cls: "opencode-stats-text",
     });
+  }
+
+  private updateContextUsage(): void {
+    if (!this.contextEl) return;
+    const used = this.contextUsed;
+    const limit = this.contextLimit;
+    if (!limit) {
+      this.contextEl.setText(this.plugin.t("Context:") + " —");
+      this.contextFillEl.style.width = "0%";
+      return;
+    }
+    const pct = Math.min(100, Math.round((used / limit) * 100));
+    this.contextFillEl.style.width = pct + "%";
+    this.contextEl.setText(
+      `${this.plugin.t("Context:")} ${pct}% (${Math.round(used / 1000)}K / ${Math.round(limit / 1000)}K)`
+    );
+  }
+
+  private async refreshContext(): Promise<void> {
+    const sid = this.viewSession;
+    if (!sid) {
+      this.contextUsed = 0;
+      this.contextLimit = 0;
+      this.updateContextUsage();
+      return;
+    }
+    try {
+      const tokens = await this.plugin.runner.getSessionTokens(sid);
+      this.contextBaseInput = tokens.input;
+      this.contextUsed = tokens.input;
+      if (!this.contextLimit) {
+        const model = this.plugin.settings.model || DEFAULT_SETTINGS.model;
+        this.contextLimit = await this.plugin.runner.getModelContextLimit(model);
+      }
+    } catch {
+      // ignora
+    }
+    this.updateContextUsage();
   }
 
   private addStats(info: FinishInfo): void {
@@ -886,18 +938,33 @@ const bubble = this.addAssistantMessage();
     this.lastStderr = "";
     this.setRunningUI(true);
 
-    // Activity indicator: shows how many events are arriving, so it is easy to
-    // tell whether the stream is alive or stuck during long tasks.
+    // Activity indicator: shows how many events are arriving and how long it
+    // has been since the last one, so it is easy to tell whether the model is
+    // still working or actually stuck.
     let eventCount = 0;
-    let lastStatusUpdate = 0;
+    let lastEventAt = Date.now();
+    this.contextRunInput = 0;
+    void this.refreshContext();
     const touch = () => {
       eventCount++;
-      const now = Date.now();
-      if (now - lastStatusUpdate > 400) {
-        lastStatusUpdate = now;
+      lastEventAt = Date.now();
+    };
+    const updateActivity = () => {
+      const since = Date.now() - lastEventAt;
+      const secs = Math.round(since / 1000);
+      if (since < 4000) {
         bubble.status.setText(`… ${eventCount} ${this.plugin.t("events")}`);
+      } else if (since < 30000) {
+        bubble.status.setText(
+          `… ${eventCount} ${this.plugin.t("events")} · ${substitute(this.plugin.t("last update $1s ago"), secs)}`
+        );
+      } else {
+        bubble.status.setText(
+          `⚠ ${this.plugin.t("Possibly stuck")} · ${substitute(this.plugin.t("last update $1s ago"), secs)}`
+        );
       }
     };
+    this.activityTimer = window.setInterval(updateActivity, 1500);
 
 const proc = this.plugin.runner.runStream(prompt, filePaths, {
       onSession: (sid) => {
@@ -939,6 +1006,11 @@ const proc = this.plugin.runner.runStream(prompt, filePaths, {
       onFinish: (info) => {
         this.addStats(info);
         bubble.setFinish(info);
+        if (info.tokens?.input) {
+          this.contextRunInput += info.tokens.input;
+          this.contextUsed = this.contextBaseInput + this.contextRunInput;
+          this.updateContextUsage();
+        }
         touch();
       },
       onError: (msg) => {
@@ -955,7 +1027,11 @@ const proc = this.plugin.runner.runStream(prompt, filePaths, {
           this.addErrorBubble(this.friendlyError(msg));
         }
       },
-      onDone: (code) => {
+onDone: (code) => {
+        if (this.activityTimer !== null) {
+          clearInterval(this.activityTimer);
+          this.activityTimer = null;
+        }
         if (this.currentProc === proc) this.currentProc = null;
         bubble.finalize();
         const snap = bubble.getSnapshot();
@@ -987,9 +1063,10 @@ const proc = this.plugin.runner.runStream(prompt, filePaths, {
             );
           }
         }
-        this.running = false;
+this.running = false;
         this.setRunningUI(false);
         void this.populateSessionSelect();
+        void this.refreshContext();
       },
     });
     this.currentProc = proc;
@@ -1072,9 +1149,14 @@ private addErrorBubble(msg: string): void {
     }
   }
 
-  private loadHistoryForSession(sessionId: string): void {
+private loadHistoryForSession(sessionId: string): void {
     this.messagesEl.empty();
     this.resetStats();
+    this.contextRunInput = 0;
+    this.contextUsed = 0;
+    this.contextLimit = 0;
+    this.updateContextUsage();
+    void this.refreshContext();
     const history = this.plugin.getHistory(sessionId);
     if (history.length === 0) {
       this.addWelcome();

@@ -161,6 +161,176 @@ var OpencodeSettingTab = class extends import_obsidian.PluginSettingTab {
   }
 };
 
+// src/i18n.ts
+var IT = {
+  // --- settings ---
+  "Language": "Lingua",
+  "Interface language. English is the default. Some command names update after reloading Obsidian.": "Lingua dell'interfaccia. L'inglese \xE8 il default. Alcuni nomi dei comandi si aggiornano dopo il ricaricamento di Obsidian.",
+  "Language changed. Reload Obsidian to apply it everywhere.": "Lingua cambiata. Ricarica Obsidian per applicarla ovunque.",
+  "English": "Inglese",
+  "Italian": "Italiano",
+  "Binary path": "Percorso binario",
+  "Command or full path to the opencode executable. Usually 'opencode' is enough if it is on your PATH. If you have issues, use the full path (e.g. on Windows .../npm/opencode.cmd, on macOS/Linux .../bin/opencode).": "Comando o percorso completo dell'eseguibile opencode. Di solito basta 'opencode' se \xE8 nel PATH. In caso di problemi usa il percorso completo (es. su Windows .../npm/opencode.cmd, su macOS/Linux .../bin/opencode).",
+  "Model": "Modello",
+  "Pick a model from the opencode list. The same selector is also available in the chat bar. The default uses the OpenCode Go provider (the same as the desktop app).": "Seleziona un modello dalla lista di opencode. Lo stesso selettore \xE8 disponibile anche nella barra della chat. Il default usa il provider OpenCode Go (lo stesso dell'app desktop).",
+  "Refresh model list": "Aggiorna elenco modelli",
+  "Reload the list of available models from opencode.": "Ricarica la lista dei modelli disponibili da opencode.",
+  "Refresh": "Aggiorna",
+  "Agent": "Agent",
+  "The opencode agent to use (e.g. build, plan). Leave empty for the default.": "Agente opencode da usare (es. build, plan). Lascia vuoto per il default.",
+  "e.g. build": "es. build",
+  "Session ID": "Session ID",
+  "The persistent session id used for the chat. It is managed automatically: the first time a new session starts, then it is reused. Empty = new session on the next message.": "ID della sessione persistente usata per la chat. Viene gestito automaticamente: la prima volta parte una sessione nuova, poi viene riusata. Vuoto = nuova sessione al prossimo messaggio.",
+  "(automatic)": "(automatico)",
+  "Reset session": "Azzera sessione",
+  "Clear the saved session and start from scratch on the next message.": "Cancella la sessione salvata e riparte da zero al prossimo messaggio.",
+  "Reset": "Azzera",
+  "Session reset: the next message will start from a new session.": "Sessione azzerata: il prossimo messaggio partir\xE0 da una nuova sessione.",
+  "Auto-approve permissions": "Auto-approve permessi",
+  "Automatically allow the tool permissions (bash, file edits, etc.). In non-interactive mode opencode would deny everything without this flag. Turn it off for extra safety.": "Concede automaticamente i permessi degli strumenti (bash, edit file, ecc.). In modalit\xE0 non interattiva opencode negherebbe tutto senza questo flag. Disattivalo per maggiore sicurezza.",
+  "Show reasoning": "Mostra ragionamento",
+  "Show the model's reasoning blocks (uses the --thinking flag).": "Mostra i blocchi di reasoning del modello (usa il flag --thinking).",
+  "Show tool details": "Mostra dettagli degli strumenti",
+  "Show the input and output of every tool executed during the request, in collapsible blocks.": "Mostra input e output di ogni strumento eseguito durante la richiesta, in blocchi apribili con un clic.",
+  "Test connection": "Testa connessione",
+  "Run 'opencode --version' to verify the binary is reachable.": "Esegue 'opencode --version' per verificare che il binario sia raggiungibile.",
+  "Test": "Test",
+  "Testing...": "Test in corso...",
+  "Opencode found:": "Opencode trovato:",
+  "Error:": "Errore:",
+  "(default from opencode)": "(default di opencode)",
+  "(custom)": "(personalizzato)",
+  // --- main commands ---
+  "New opencode chat": "Nuova chat opencode",
+  "Open opencode chat": "Apri chat opencode",
+  "Continue in a new session (by summarizing)": "Continua in una nuova sessione (riassumendo)",
+  "Send selection to opencode": "Invia selezione a opencode",
+  "No text selected": "Nessun testo selezionato",
+  "Use the current note as context": "Usa la nota corrente come contesto",
+  "No active note": "Nessuna nota attiva",
+  "Analyze the current note with opencode": "Analizza la nota corrente con opencode",
+  "Analyze the content of the attached note below: provide a summary, key points, possible links with other vault notes and suggestions to develop it.": "Analizza il contenuto della nota allegata qui sotto: fornisci un riassunto, i punti chiave, eventuali collegamenti con altre note del vault e suggerimenti per svilupparla.",
+  "Reset the opencode session": "Azzera la sessione opencode",
+  "Session reset.": "Sessione azzerata.",
+  // --- chat view ---
+  "You": "Tu",
+  "Opencode": "Opencode",
+  "Error": "Errore",
+  "Copy text": "Copia testo",
+  "Text copied.": "Testo copiato.",
+  "Type a message for opencode... (Enter to send, Shift+Enter for a new line)": "Scrivi un messaggio per opencode... (Invio per inviare, Shift+Invio per andare a capo)",
+  "Send": "Invia",
+  "Stop": "Stop",
+  "New session": "Nuova sessione",
+  "Rename session": "Rinomina sessione",
+  "Delete session": "Elimina sessione",
+  "Pin/Unpin session": "Pina/Spilla la sessione",
+  "Session stats (tokens and costs)": "Statistiche token e costi",
+  "Attach file": "Allega file",
+  "Current note": "Nota corrente",
+  "Remove the attached context": "Rimuovi il contesto allegato",
+  "Session pinned.": "Sessione pinnata.",
+  "Session unpinned.": "Sessione rimossa dai pinnati.",
+  "Select a session to pin.": "Seleziona una sessione da pinnare.",
+  "Select a session to rename.": "Seleziona una sessione da rinominare.",
+  "Select a session to delete.": "Seleziona una sessione da eliminare.",
+  "The title cannot be empty.": "Il titolo non pu\xF2 essere vuoto.",
+  "Session renamed.": "Sessione rinominata.",
+  "Session deleted.": "Sessione eliminata.",
+  'Do you want to delete the session "$1"? The history saved in Obsidian will also be removed.': 'Vuoi eliminare la sessione "$1"? Verr\xE0 rimossa anche la cronologia salvata in Obsidian.',
+  "Delete": "Elimina",
+  "Cancel": "Annulla",
+  "Context:": "Contesto:",
+  "last update $1s ago": "ultimo aggiornamento $1s fa",
+  "Possibly stuck": "Possibilmente bloccato",
+  "with context:": "con contesto:",
+  "Note added to context.": "Nota aggiunta al contesto.",
+  "Image attached: check that the selected model supports images (vision).": "Immagine allegata: verifica che il modello selezionato supporti le immagini (vision).",
+  "New session: the next message will start from scratch.": "Nuova sessione: il prossimo messaggio partir\xE0 da zero.",
+  "There is already a request in progress.": "C'\xE8 gi\xE0 una richiesta in corso.",
+  "Select first the session to summarize.": "Seleziona prima la sessione da riassumere.",
+  "Model set:": "Modello impostato:",
+  "Select a model...": "Scegli un modello...",
+  "navigate": "navigare",
+  "attach": "allegare",
+  "close": "chiudere",
+  "Search a vault file to attach...": "Cerca un file del vault da allegare...",
+  "New title": "Nuovo titolo",
+  "Save": "Salva",
+  "Token usage and costs": "Utilizzo token e costi",
+  "Loading...": "Caricamento...",
+  "Last 5 hours": "Ultime 5 ore",
+  "Last week": "Ultima settimana",
+  "Last month": "Ultimo mese",
+  "Input tokens": "Token input",
+  "Output tokens": "Token output",
+  "Total tokens": "Totale token",
+  "Cost": "Costo",
+  "Generating session summary...": "Generazione riassunto della sessione...",
+  "The session summary could not be generated.": "Riassunto della sessione non riuscito.",
+  "Starting...": "In avvio...",
+  "Details": "Dettagli",
+  "Reasoning": "Ragionamento",
+  "Tool": "Strumento",
+  "INPUT:": "INPUT:",
+  "OUTPUT:": "OUTPUT:",
+  "(no details)": "(nessun dettaglio)",
+  "events": "eventi",
+  "Token:": "Token:",
+  "in": "in",
+  "out": "out",
+  "Cost:": "Costo:",
+  "The selected model does not support images. Remove the attached image or choose a multimodal (vision) model from the Model menu.": "Il modello selezionato non supporta le immagini. Rimuovi l'allegato immagine oppure scegli un modello multimodale (con supporto vision) dal menu Modello.",
+  "The saved session no longer exists: a new one will be created, resend the message.": "La sessione salvata non esiste pi\xF9: ne verr\xE0 creata una nuova, rispedisci il messaggio.",
+  "The opencode process exited with code $1. Check the binary path and the model in the settings.": "Il processo opencode \xE8 terminato con codice $1. Verifica il percorso del binario e il modello nelle impostazioni.",
+  "Session at the limit: new session created with the recent history.": "Sessione al limite: nuova sessione creata con la cronologia recente.",
+  "New session created with the summary of the previous one.": "Nuova sessione creata con il riassunto della precedente.",
+  "[SUMMARY OF THE PREVIOUS SESSION]": "[RIASSUNTO DELLA SESSIONE PRECEDENTE]",
+  "[RECENT HISTORY OF THE PREVIOUS SESSION]": "[CRONOLOGIA RECENTE DELLA SESSIONE PRECEDENTE]",
+  "Continue the work from here.": "Continua il lavoro da qui.",
+  "Continue the work from the previous session.": "Continua il lavoro dalla sessione precedente.",
+  "Continue the work from here, keeping the context above in mind.": "Continua il lavoro da qui, tenendo conto del contesto sopra.",
+  "The previous session has no saved history. Continue the work from here.": "La sessione precedente non ha una cronologia salvata. Continua il lavoro da qui.",
+  "User": "Utente",
+  "Unknown error": "Errore sconosciuto",
+  // --- suggestions ---
+  "/model": "/modello",
+  "Change the model": "Cambia il modello",
+  "/new": "/nuova",
+  "/note": "/nota",
+  "Attach the current note": "Allega la nota corrente",
+  "/attach": "/allega",
+  "Attach a file": "Allega un file",
+  "Token and cost statistics": "Statistiche token e costi",
+  "/pin": "/pin",
+  "/rename": "/rinomina",
+  "Attached": "Allegato",
+  "current note": "nota corrente",
+  "Attach the open note as context": "Allega la nota aperta come contesto",
+  "attach file": "allega file",
+  "Pick a file to attach": "Scegli un file da allegare",
+  "new session": "nuova sessione",
+  "Start from an empty session": "Parti da una sessione vuota",
+  "statistics": "statistiche",
+  "Tokens and costs (5h, week, month)": "Token e costi (5h, settimana, mese)",
+  "pin/unpin session": "pina/spilla sessione",
+  "Pin the session in the list": "Fissa la sessione nella lista",
+  "active model": "modello attivo",
+  "Hi! I am the plugin that connects your vault to opencode. Write a message below. Try the commands: / for commands, @ to attach a file, ! for quick actions.": "Ciao! Sono il plugin che collega il tuo vault a opencode. Scrivi un messaggio qui sotto. Prova i comandi: / per i comandi, @ per allegare un file, ! per le azioni rapide.",
+  "Summarize in detail this conversation: goals, decisions made, work done, current state and next steps. Write the summary so the work can continue in a new session without losing context.": "Riassumi in dettaglio questa conversazione: obiettivi, decisioni prese, lavoro svolto, stato attuale e prossimi passi. Scrivi il riassunto in modo che si possa continuare il lavoro in una nuova sessione senza perdere il contesto."
+};
+function translate(lang, text) {
+  var _a;
+  if (lang === "it") return (_a = IT[text]) != null ? _a : text;
+  return text;
+}
+function substitute(template, ...args) {
+  return template.replace(/\$(\d+)/g, (_, n) => {
+    var _a;
+    return String((_a = args[Number(n) - 1]) != null ? _a : "");
+  });
+}
+
 // src/modals.ts
 var import_obsidian2 = require("obsidian");
 var RenameModal = class extends import_obsidian2.Modal {
@@ -301,6 +471,11 @@ var ChatView = class extends import_obsidian3.ItemView {
     this.stoppedByUser = false;
     this.lastStderr = "";
     this.stats = { input: 0, output: 0, total: 0, cost: 0 };
+    this.contextLimit = 0;
+    this.contextUsed = 0;
+    this.contextBaseInput = 0;
+    this.contextRunInput = 0;
+    this.activityTimer = null;
     this.suggestItems = [];
     this.suggestIndex = 0;
     this.suggestOpen = false;
@@ -561,15 +736,56 @@ var ChatView = class extends import_obsidian3.ItemView {
   }
   buildStatsBar(container) {
     this.statsBar = container.createDiv({ cls: "opencode-stats-bar" });
+    const ctx = this.statsBar.createSpan({ cls: "opencode-context" });
+    const track = ctx.createSpan({ cls: "opencode-context-track" });
+    this.contextFillEl = track.createSpan({ cls: "opencode-context-fill" });
+    this.contextEl = ctx.createSpan({ cls: "opencode-context-text" });
+    this.updateContextUsage();
     this.updateStatsBar();
   }
   updateStatsBar() {
     if (!this.statsBar) return;
-    this.statsBar.empty();
+    const existing = this.statsBar.querySelector(".opencode-stats-text");
+    if (existing) existing.remove();
     this.statsBar.createSpan({
       text: this.fmtTokens(this.stats.total, this.stats.input, this.stats.output, this.stats.cost),
       cls: "opencode-stats-text"
     });
+  }
+  updateContextUsage() {
+    if (!this.contextEl) return;
+    const used = this.contextUsed;
+    const limit = this.contextLimit;
+    if (!limit) {
+      this.contextEl.setText(this.plugin.t("Context:") + " \u2014");
+      this.contextFillEl.style.width = "0%";
+      return;
+    }
+    const pct = Math.min(100, Math.round(used / limit * 100));
+    this.contextFillEl.style.width = pct + "%";
+    this.contextEl.setText(
+      `${this.plugin.t("Context:")} ${pct}% (${Math.round(used / 1e3)}K / ${Math.round(limit / 1e3)}K)`
+    );
+  }
+  async refreshContext() {
+    const sid = this.viewSession;
+    if (!sid) {
+      this.contextUsed = 0;
+      this.contextLimit = 0;
+      this.updateContextUsage();
+      return;
+    }
+    try {
+      const tokens = await this.plugin.runner.getSessionTokens(sid);
+      this.contextBaseInput = tokens.input;
+      this.contextUsed = tokens.input;
+      if (!this.contextLimit) {
+        const model = this.plugin.settings.model || DEFAULT_SETTINGS.model;
+        this.contextLimit = await this.plugin.runner.getModelContextLimit(model);
+      }
+    } catch (e) {
+    }
+    this.updateContextUsage();
   }
   addStats(info) {
     var _a, _b, _c, _d;
@@ -1059,15 +1275,29 @@ ${this.context.content}
     this.lastStderr = "";
     this.setRunningUI(true);
     let eventCount = 0;
-    let lastStatusUpdate = 0;
+    let lastEventAt = Date.now();
+    this.contextRunInput = 0;
+    void this.refreshContext();
     const touch = () => {
       eventCount++;
-      const now = Date.now();
-      if (now - lastStatusUpdate > 400) {
-        lastStatusUpdate = now;
+      lastEventAt = Date.now();
+    };
+    const updateActivity = () => {
+      const since = Date.now() - lastEventAt;
+      const secs = Math.round(since / 1e3);
+      if (since < 4e3) {
         bubble.status.setText(`\u2026 ${eventCount} ${this.plugin.t("events")}`);
+      } else if (since < 3e4) {
+        bubble.status.setText(
+          `\u2026 ${eventCount} ${this.plugin.t("events")} \xB7 ${substitute(this.plugin.t("last update $1s ago"), secs)}`
+        );
+      } else {
+        bubble.status.setText(
+          `\u26A0 ${this.plugin.t("Possibly stuck")} \xB7 ${substitute(this.plugin.t("last update $1s ago"), secs)}`
+        );
       }
     };
+    this.activityTimer = window.setInterval(updateActivity, 1500);
     const proc = this.plugin.runner.runStream(prompt, filePaths, {
       onSession: (sid) => {
         if (sid && sid !== this.viewSession) {
@@ -1106,8 +1336,14 @@ ${this.context.content}
         touch();
       },
       onFinish: (info) => {
+        var _a;
         this.addStats(info);
         bubble.setFinish(info);
+        if ((_a = info.tokens) == null ? void 0 : _a.input) {
+          this.contextRunInput += info.tokens.input;
+          this.contextUsed = this.contextBaseInput + this.contextRunInput;
+          this.updateContextUsage();
+        }
         touch();
       },
       onError: (msg) => {
@@ -1125,6 +1361,10 @@ ${this.context.content}
         }
       },
       onDone: (code) => {
+        if (this.activityTimer !== null) {
+          clearInterval(this.activityTimer);
+          this.activityTimer = null;
+        }
         if (this.currentProc === proc) this.currentProc = null;
         bubble.finalize();
         const snap = bubble.getSnapshot();
@@ -1159,6 +1399,7 @@ ${this.context.content}
         this.running = false;
         this.setRunningUI(false);
         void this.populateSessionSelect();
+        void this.refreshContext();
       }
     });
     this.currentProc = proc;
@@ -1236,6 +1477,11 @@ ${this.context.content}
   loadHistoryForSession(sessionId) {
     this.messagesEl.empty();
     this.resetStats();
+    this.contextRunInput = 0;
+    this.contextUsed = 0;
+    this.contextLimit = 0;
+    this.updateContextUsage();
+    void this.refreshContext();
     const history = this.plugin.getHistory(sessionId);
     if (history.length === 0) {
       this.addWelcome();
@@ -1464,7 +1710,66 @@ var OpencodeRunner = class {
   constructor(plugin) {
     this.resolvedBinary = null;
     this.resolvedBinaryTried = false;
+    this.contextLimitCache = /* @__PURE__ */ new Map();
     this.plugin = plugin;
+  }
+  // Context window size (tokens) of a model, parsed from `opencode models --verbose`.
+  async getModelContextLimit(model) {
+    const cached = this.contextLimitCache.get(model);
+    if (cached !== void 0) return cached;
+    const slash = model.indexOf("/");
+    const provider = slash >= 0 ? model.slice(0, slash) : model;
+    const out = await this.execCli(["models", provider, "--verbose"]);
+    const limit = this.parseContextLimit(out, model);
+    this.contextLimitCache.set(model, limit);
+    return limit;
+  }
+  parseContextLimit(out, model) {
+    var _a;
+    const lines = out.split(/\r?\n/);
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i].trim();
+      if (/^[a-zA-Z0-9_.:/+-]+$/.test(line) && line.includes("/")) {
+        let json = "";
+        let depth = 0;
+        let started = false;
+        let j = i + 1;
+        for (; j < lines.length; j++) {
+          const l = lines[j];
+          if (!started) {
+            if (!l.trim()) continue;
+            started = true;
+          }
+          json += l + "\n";
+          for (const ch of l) {
+            if (ch === "{") depth++;
+            else if (ch === "}") depth--;
+          }
+          if (depth === 0) break;
+        }
+        if (line === model) {
+          try {
+            const obj = JSON.parse(json);
+            const ctx = (_a = obj == null ? void 0 : obj.limit) == null ? void 0 : _a.context;
+            if (typeof ctx === "number") return ctx;
+          } catch (e) {
+          }
+        }
+        i = j;
+      } else {
+        i++;
+      }
+    }
+    return 0;
+  }
+  // Accumulated token usage of a session, read from the opencode database.
+  async getSessionTokens(sessionId) {
+    var _a, _b, _c;
+    const query = `SELECT COALESCE(tokens_input,0) AS ti, COALESCE(tokens_output,0) AS to, COALESCE(tokens_reasoning,0) AS tr FROM session WHERE id='${sessionId}'`;
+    const rows = await this.runDbQuery(query);
+    const r = (_a = rows[0]) != null ? _a : {};
+    return { input: Number((_b = r.ti) != null ? _b : 0), output: Number((_c = r.to) != null ? _c : 0) };
   }
   getVersion() {
     const s = this.plugin.settings;
@@ -1790,168 +2095,6 @@ var OpencodeRunner = class {
     return null;
   }
 };
-
-// src/i18n.ts
-var IT = {
-  // --- settings ---
-  "Language": "Lingua",
-  "Interface language. English is the default. Some command names update after reloading Obsidian.": "Lingua dell'interfaccia. L'inglese \xE8 il default. Alcuni nomi dei comandi si aggiornano dopo il ricaricamento di Obsidian.",
-  "Language changed. Reload Obsidian to apply it everywhere.": "Lingua cambiata. Ricarica Obsidian per applicarla ovunque.",
-  "English": "Inglese",
-  "Italian": "Italiano",
-  "Binary path": "Percorso binario",
-  "Command or full path to the opencode executable. Usually 'opencode' is enough if it is on your PATH. If you have issues, use the full path (e.g. on Windows .../npm/opencode.cmd, on macOS/Linux .../bin/opencode).": "Comando o percorso completo dell'eseguibile opencode. Di solito basta 'opencode' se \xE8 nel PATH. In caso di problemi usa il percorso completo (es. su Windows .../npm/opencode.cmd, su macOS/Linux .../bin/opencode).",
-  "Model": "Modello",
-  "Pick a model from the opencode list. The same selector is also available in the chat bar. The default uses the OpenCode Go provider (the same as the desktop app).": "Seleziona un modello dalla lista di opencode. Lo stesso selettore \xE8 disponibile anche nella barra della chat. Il default usa il provider OpenCode Go (lo stesso dell'app desktop).",
-  "Refresh model list": "Aggiorna elenco modelli",
-  "Reload the list of available models from opencode.": "Ricarica la lista dei modelli disponibili da opencode.",
-  "Refresh": "Aggiorna",
-  "Agent": "Agent",
-  "The opencode agent to use (e.g. build, plan). Leave empty for the default.": "Agente opencode da usare (es. build, plan). Lascia vuoto per il default.",
-  "e.g. build": "es. build",
-  "Session ID": "Session ID",
-  "The persistent session id used for the chat. It is managed automatically: the first time a new session starts, then it is reused. Empty = new session on the next message.": "ID della sessione persistente usata per la chat. Viene gestito automaticamente: la prima volta parte una sessione nuova, poi viene riusata. Vuoto = nuova sessione al prossimo messaggio.",
-  "(automatic)": "(automatico)",
-  "Reset session": "Azzera sessione",
-  "Clear the saved session and start from scratch on the next message.": "Cancella la sessione salvata e riparte da zero al prossimo messaggio.",
-  "Reset": "Azzera",
-  "Session reset: the next message will start from a new session.": "Sessione azzerata: il prossimo messaggio partir\xE0 da una nuova sessione.",
-  "Auto-approve permissions": "Auto-approve permessi",
-  "Automatically allow the tool permissions (bash, file edits, etc.). In non-interactive mode opencode would deny everything without this flag. Turn it off for extra safety.": "Concede automaticamente i permessi degli strumenti (bash, edit file, ecc.). In modalit\xE0 non interattiva opencode negherebbe tutto senza questo flag. Disattivalo per maggiore sicurezza.",
-  "Show reasoning": "Mostra ragionamento",
-  "Show the model's reasoning blocks (uses the --thinking flag).": "Mostra i blocchi di reasoning del modello (usa il flag --thinking).",
-  "Show tool details": "Mostra dettagli degli strumenti",
-  "Show the input and output of every tool executed during the request, in collapsible blocks.": "Mostra input e output di ogni strumento eseguito durante la richiesta, in blocchi apribili con un clic.",
-  "Test connection": "Testa connessione",
-  "Run 'opencode --version' to verify the binary is reachable.": "Esegue 'opencode --version' per verificare che il binario sia raggiungibile.",
-  "Test": "Test",
-  "Testing...": "Test in corso...",
-  "Opencode found:": "Opencode trovato:",
-  "Error:": "Errore:",
-  "(default from opencode)": "(default di opencode)",
-  "(custom)": "(personalizzato)",
-  // --- main commands ---
-  "New opencode chat": "Nuova chat opencode",
-  "Open opencode chat": "Apri chat opencode",
-  "Continue in a new session (by summarizing)": "Continua in una nuova sessione (riassumendo)",
-  "Send selection to opencode": "Invia selezione a opencode",
-  "No text selected": "Nessun testo selezionato",
-  "Use the current note as context": "Usa la nota corrente come contesto",
-  "No active note": "Nessuna nota attiva",
-  "Analyze the current note with opencode": "Analizza la nota corrente con opencode",
-  "Analyze the content of the attached note below: provide a summary, key points, possible links with other vault notes and suggestions to develop it.": "Analizza il contenuto della nota allegata qui sotto: fornisci un riassunto, i punti chiave, eventuali collegamenti con altre note del vault e suggerimenti per svilupparla.",
-  "Reset the opencode session": "Azzera la sessione opencode",
-  "Session reset.": "Sessione azzerata.",
-  // --- chat view ---
-  "You": "Tu",
-  "Opencode": "Opencode",
-  "Error": "Errore",
-  "Copy text": "Copia testo",
-  "Text copied.": "Testo copiato.",
-  "Type a message for opencode... (Enter to send, Shift+Enter for a new line)": "Scrivi un messaggio per opencode... (Invio per inviare, Shift+Invio per andare a capo)",
-  "Send": "Invia",
-  "Stop": "Stop",
-  "New session": "Nuova sessione",
-  "Rename session": "Rinomina sessione",
-  "Delete session": "Elimina sessione",
-  "Pin/Unpin session": "Pina/Spilla la sessione",
-  "Session stats (tokens and costs)": "Statistiche token e costi",
-  "Attach file": "Allega file",
-  "Current note": "Nota corrente",
-  "Remove the attached context": "Rimuovi il contesto allegato",
-  "Session pinned.": "Sessione pinnata.",
-  "Session unpinned.": "Sessione rimossa dai pinnati.",
-  "Select a session to pin.": "Seleziona una sessione da pinnare.",
-  "Select a session to rename.": "Seleziona una sessione da rinominare.",
-  "Select a session to delete.": "Seleziona una sessione da eliminare.",
-  "The title cannot be empty.": "Il titolo non pu\xF2 essere vuoto.",
-  "Session renamed.": "Sessione rinominata.",
-  "Session deleted.": "Sessione eliminata.",
-  'Do you want to delete the session "$1"? The history saved in Obsidian will also be removed.': 'Vuoi eliminare la sessione "$1"? Verr\xE0 rimossa anche la cronologia salvata in Obsidian.',
-  "Delete": "Elimina",
-  "Cancel": "Annulla",
-  "Context:": "Contesto:",
-  "with context:": "con contesto:",
-  "Note added to context.": "Nota aggiunta al contesto.",
-  "Image attached: check that the selected model supports images (vision).": "Immagine allegata: verifica che il modello selezionato supporti le immagini (vision).",
-  "New session: the next message will start from scratch.": "Nuova sessione: il prossimo messaggio partir\xE0 da zero.",
-  "There is already a request in progress.": "C'\xE8 gi\xE0 una richiesta in corso.",
-  "Select first the session to summarize.": "Seleziona prima la sessione da riassumere.",
-  "Model set:": "Modello impostato:",
-  "Select a model...": "Scegli un modello...",
-  "navigate": "navigare",
-  "attach": "allegare",
-  "close": "chiudere",
-  "Search a vault file to attach...": "Cerca un file del vault da allegare...",
-  "New title": "Nuovo titolo",
-  "Save": "Salva",
-  "Token usage and costs": "Utilizzo token e costi",
-  "Loading...": "Caricamento...",
-  "Last 5 hours": "Ultime 5 ore",
-  "Last week": "Ultima settimana",
-  "Last month": "Ultimo mese",
-  "Input tokens": "Token input",
-  "Output tokens": "Token output",
-  "Total tokens": "Totale token",
-  "Cost": "Costo",
-  "Generating session summary...": "Generazione riassunto della sessione...",
-  "The session summary could not be generated.": "Riassunto della sessione non riuscito.",
-  "Starting...": "In avvio...",
-  "Details": "Dettagli",
-  "Reasoning": "Ragionamento",
-  "Tool": "Strumento",
-  "INPUT:": "INPUT:",
-  "OUTPUT:": "OUTPUT:",
-  "(no details)": "(nessun dettaglio)",
-  "events": "eventi",
-  "Token:": "Token:",
-  "in": "in",
-  "out": "out",
-  "Cost:": "Costo:",
-  "The selected model does not support images. Remove the attached image or choose a multimodal (vision) model from the Model menu.": "Il modello selezionato non supporta le immagini. Rimuovi l'allegato immagine oppure scegli un modello multimodale (con supporto vision) dal menu Modello.",
-  "The saved session no longer exists: a new one will be created, resend the message.": "La sessione salvata non esiste pi\xF9: ne verr\xE0 creata una nuova, rispedisci il messaggio.",
-  "The opencode process exited with code $1. Check the binary path and the model in the settings.": "Il processo opencode \xE8 terminato con codice $1. Verifica il percorso del binario e il modello nelle impostazioni.",
-  "Session at the limit: new session created with the recent history.": "Sessione al limite: nuova sessione creata con la cronologia recente.",
-  "New session created with the summary of the previous one.": "Nuova sessione creata con il riassunto della precedente.",
-  "[SUMMARY OF THE PREVIOUS SESSION]": "[RIASSUNTO DELLA SESSIONE PRECEDENTE]",
-  "[RECENT HISTORY OF THE PREVIOUS SESSION]": "[CRONOLOGIA RECENTE DELLA SESSIONE PRECEDENTE]",
-  "Continue the work from here.": "Continua il lavoro da qui.",
-  "Continue the work from the previous session.": "Continua il lavoro dalla sessione precedente.",
-  "Continue the work from here, keeping the context above in mind.": "Continua il lavoro da qui, tenendo conto del contesto sopra.",
-  "The previous session has no saved history. Continue the work from here.": "La sessione precedente non ha una cronologia salvata. Continua il lavoro da qui.",
-  "User": "Utente",
-  "Unknown error": "Errore sconosciuto",
-  // --- suggestions ---
-  "/model": "/modello",
-  "Change the model": "Cambia il modello",
-  "/new": "/nuova",
-  "/note": "/nota",
-  "Attach the current note": "Allega la nota corrente",
-  "/attach": "/allega",
-  "Attach a file": "Allega un file",
-  "Token and cost statistics": "Statistiche token e costi",
-  "/pin": "/pin",
-  "/rename": "/rinomina",
-  "Attached": "Allegato",
-  "current note": "nota corrente",
-  "Attach the open note as context": "Allega la nota aperta come contesto",
-  "attach file": "allega file",
-  "Pick a file to attach": "Scegli un file da allegare",
-  "new session": "nuova sessione",
-  "Start from an empty session": "Parti da una sessione vuota",
-  "statistics": "statistiche",
-  "Tokens and costs (5h, week, month)": "Token e costi (5h, settimana, mese)",
-  "pin/unpin session": "pina/spilla sessione",
-  "Pin the session in the list": "Fissa la sessione nella lista",
-  "active model": "modello attivo",
-  "Hi! I am the plugin that connects your vault to opencode. Write a message below. Try the commands: / for commands, @ to attach a file, ! for quick actions.": "Ciao! Sono il plugin che collega il tuo vault a opencode. Scrivi un messaggio qui sotto. Prova i comandi: / per i comandi, @ per allegare un file, ! per le azioni rapide.",
-  "Summarize in detail this conversation: goals, decisions made, work done, current state and next steps. Write the summary so the work can continue in a new session without losing context.": "Riassumi in dettaglio questa conversazione: obiettivi, decisioni prese, lavoro svolto, stato attuale e prossimi passi. Scrivi il riassunto in modo che si possa continuare il lavoro in una nuova sessione senza perdere il contesto."
-};
-function translate(lang, text) {
-  var _a;
-  if (lang === "it") return (_a = IT[text]) != null ? _a : text;
-  return text;
-}
 
 // src/main.ts
 var OpencodePlugin = class extends import_obsidian5.Plugin {

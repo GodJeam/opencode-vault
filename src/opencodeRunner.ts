@@ -64,9 +64,71 @@ export class OpencodeRunner {
   private plugin: OpencodePlugin;
   private resolvedBinary: string | null = null;
   private resolvedBinaryTried = false;
+  private contextLimitCache = new Map<string, number>();
 
   constructor(plugin: OpencodePlugin) {
     this.plugin = plugin;
+  }
+
+  // Context window size (tokens) of a model, parsed from `opencode models --verbose`.
+  async getModelContextLimit(model: string): Promise<number> {
+    const cached = this.contextLimitCache.get(model);
+    if (cached !== undefined) return cached;
+    const slash = model.indexOf("/");
+    const provider = slash >= 0 ? model.slice(0, slash) : model;
+    const out = await this.execCli(["models", provider, "--verbose"]);
+    const limit = this.parseContextLimit(out, model);
+    this.contextLimitCache.set(model, limit);
+    return limit;
+  }
+
+  private parseContextLimit(out: string, model: string): number {
+    const lines = out.split(/\r?\n/);
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i].trim();
+      if (/^[a-zA-Z0-9_.:/+-]+$/.test(line) && line.includes("/")) {
+        let json = "";
+        let depth = 0;
+        let started = false;
+        let j = i + 1;
+        for (; j < lines.length; j++) {
+          const l = lines[j];
+          if (!started) {
+            if (!l.trim()) continue;
+            started = true;
+          }
+          json += l + "\n";
+          for (const ch of l) {
+            if (ch === "{") depth++;
+            else if (ch === "}") depth--;
+          }
+          if (depth === 0) break;
+        }
+        if (line === model) {
+          try {
+            const obj = JSON.parse(json);
+            const ctx = (obj as { limit?: { context?: unknown } })?.limit?.context;
+            if (typeof ctx === "number") return ctx;
+          } catch {
+            // prova con il modello successivo
+          }
+        }
+        i = j;
+      } else {
+        i++;
+      }
+    }
+    return 0;
+  }
+
+  // Accumulated token usage of a session, read from the opencode database.
+  async getSessionTokens(sessionId: string): Promise<{ input: number; output: number }> {
+    const query =
+      `SELECT COALESCE(tokens_input,0) AS ti, COALESCE(tokens_output,0) AS to, COALESCE(tokens_reasoning,0) AS tr FROM session WHERE id='${sessionId}'`;
+    const rows = (await this.runDbQuery(query)) as { ti?: number; to?: number }[];
+    const r = rows[0] ?? {};
+    return { input: Number(r.ti ?? 0), output: Number(r.to ?? 0) };
   }
 
   getVersion(): Promise<string> {
