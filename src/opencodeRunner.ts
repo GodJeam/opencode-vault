@@ -1,6 +1,8 @@
 import { spawn, type ChildProcess, type SpawnOptions } from "child_process";
-import { existsSync, readFileSync } from "fs";
+import { createHash } from "crypto";
+import { existsSync, mkdirSync, readFileSync } from "fs";
 import { basename, dirname, join } from "path";
+import { tmpdir } from "os";
 import { FileSystemAdapter } from "obsidian";
 import type OpencodePlugin from "./main";
 import { DEFAULT_SETTINGS, type OpencodeSettings } from "./settings";
@@ -68,6 +70,43 @@ export class OpencodeRunner {
 
   constructor(plugin: OpencodePlugin) {
     this.plugin = plugin;
+  }
+
+  // Convert a document (PDF, Word, Excel, ...) to Markdown using anydoc
+  // (https://github.com/firecrawl/anydoc). Returns the path of the .md file.
+  async convertDocument(absPath: string): Promise<string> {
+    const hash = createHash("sha256").update(absPath).digest("hex").slice(0, 16);
+    const dir = join(tmpdir(), "opencode-vault-anydoc");
+    mkdirSync(dir, { recursive: true });
+    const outPath = join(dir, hash + ".md");
+    await this.convertWithAnydoc(absPath, outPath);
+    return outPath;
+  }
+
+  private async convertWithAnydoc(inputPath: string, outputPath: string): Promise<void> {
+    const bin = this.plugin.settings.anydocBinary || "anydoc";
+    await new Promise<void>((resolve, reject) => {
+      const child = this.spawnCommand(bin, [inputPath, "-o", outputPath]);
+      let err = "";
+      child.stderr?.on("data", (d: Buffer) => (err += d.toString()));
+      child.on("error", (e) => reject(e));
+      child.on("close", (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`anydoc exited with code ${code}: ${err.trim().slice(0, 200)}`));
+      });
+    });
+  }
+
+  private spawnCommand(bin: string, args: string[], cwd?: string): ChildProcess {
+    const isWin = process.platform === "win32";
+    const shell = isWin && !bin.includes("\\") && !bin.includes("/");
+    return spawn(bin, args, {
+      cwd,
+      shell,
+      windowsHide: true,
+      env: process.env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
   }
 
   // Context window size (tokens) of a model, parsed from `opencode models --verbose`.

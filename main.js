@@ -33,6 +33,8 @@ var import_obsidian = require("obsidian");
 var DEFAULT_SETTINGS = {
   language: "en",
   binaryPath: "opencode",
+  anydocEnabled: true,
+  anydocBinary: "anydoc",
   model: "opencode-go/deepseek-v4-flash",
   agent: "",
   autoApprove: true,
@@ -66,6 +68,20 @@ var OpencodeSettingTab = class extends import_obsidian.PluginSettingTab {
     )).addText(
       (text) => text.setPlaceholder("opencode").setValue(this.plugin.settings.binaryPath).onChange(async (value) => {
         this.plugin.settings.binaryPath = value.trim() || "opencode";
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName(t("Convert documents with anydoc")).setDesc(t(
+      "Run anydoc on attached documents (PDF, Word, Excel, etc.) and attach them as Markdown instead of the original file. Install with: npm install -g @firecrawl/anydoc"
+    )).addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.anydocEnabled).onChange(async (value) => {
+        this.plugin.settings.anydocEnabled = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian.Setting(containerEl).setName(t("Anydoc binary path")).setDesc(t("Command or full path to the anydoc executable (npm install -g @firecrawl/anydoc).")).addText(
+      (text) => text.setPlaceholder("anydoc").setValue(this.plugin.settings.anydocBinary).onChange(async (value) => {
+        this.plugin.settings.anydocBinary = value.trim() || "anydoc";
         await this.plugin.saveSettings();
       })
     );
@@ -170,6 +186,11 @@ var IT = {
   "English": "Inglese",
   "Italian": "Italiano",
   "Binary path": "Percorso binario",
+  "Convert documents with anydoc": "Converti i documenti con anydoc",
+  "Run anydoc on attached documents (PDF, Word, Excel, etc.) and attach them as Markdown instead of the original file. Install with: npm install -g @firecrawl/anydoc": "Esegue anydoc sugli allegati documento (PDF, Word, Excel, ecc.) e li allega come Markdown invece del file originale. Installazione: npm install -g @firecrawl/anydoc",
+  "Anydoc binary path": "Percorso binario anydoc",
+  "Command or full path to the anydoc executable (npm install -g @firecrawl/anydoc).": "Comando o percorso completo dell'eseguibile anydoc (npm install -g @firecrawl/anydoc).",
+  "anydoc conversion failed": "Conversione anydoc fallita",
   "Command or full path to the opencode executable. Usually 'opencode' is enough if it is on your PATH. If you have issues, use the full path (e.g. on Windows .../npm/opencode.cmd, on macOS/Linux .../bin/opencode).": "Comando o percorso completo dell'eseguibile opencode. Di solito basta 'opencode' se \xE8 nel PATH. In caso di problemi usa il percorso completo (es. su Windows .../npm/opencode.cmd, su macOS/Linux .../bin/opencode).",
   "Model": "Modello",
   "Pick a model from the opencode list. The same selector is also available in the chat bar. The default uses the OpenCode Go provider (the same as the desktop app).": "Seleziona un modello dalla lista di opencode. Lo stesso selettore \xE8 disponibile anche nella barra della chat. Il default usa il provider OpenCode Go (lo stesso dell'app desktop).",
@@ -1250,8 +1271,31 @@ ${this.context.content}
       });
       this.pendingUser = null;
     }
-    const filePaths = this.attachments.map((a) => this.toAbsolutePath(a.path));
+    const filePaths = await this.prepareAttachments();
     this.doRun(prompt, filePaths);
+  }
+  // Convert document attachments (PDF, Word, Excel, ...) to Markdown via anydoc
+  // before sending, so any model can read them regardless of image/format support.
+  async prepareAttachments() {
+    const paths = [];
+    const useAnydoc = this.plugin.settings.anydocEnabled;
+    for (const a of this.attachments) {
+      const abs = this.toAbsolutePath(a.path);
+      if (useAnydoc && this.isDocument(a.path)) {
+        try {
+          paths.push(await this.plugin.runner.convertDocument(abs));
+        } catch (e) {
+          new import_obsidian3.Notice(`${this.plugin.t("anydoc conversion failed")}: ${e.message}`);
+          paths.push(abs);
+        }
+      } else {
+        paths.push(abs);
+      }
+    }
+    return paths;
+  }
+  isDocument(p) {
+    return /\.(pdf|docx?|pptx?|xlsx?|odt|ods|odp|rtf|epub|csv)$/i.test(p);
   }
   toAbsolutePath(vaultPath) {
     const adapter = this.app.vault.adapter;
@@ -1707,8 +1751,10 @@ var AssistantBubble = class {
 
 // src/opencodeRunner.ts
 var import_child_process = require("child_process");
+var import_crypto = require("crypto");
 var import_fs = require("fs");
 var import_path = require("path");
+var import_os = require("os");
 var import_obsidian4 = require("obsidian");
 var OpencodeRunner = class {
   constructor(plugin) {
@@ -1716,6 +1762,41 @@ var OpencodeRunner = class {
     this.resolvedBinaryTried = false;
     this.contextLimitCache = /* @__PURE__ */ new Map();
     this.plugin = plugin;
+  }
+  // Convert a document (PDF, Word, Excel, ...) to Markdown using anydoc
+  // (https://github.com/firecrawl/anydoc). Returns the path of the .md file.
+  async convertDocument(absPath) {
+    const hash = (0, import_crypto.createHash)("sha256").update(absPath).digest("hex").slice(0, 16);
+    const dir = (0, import_path.join)((0, import_os.tmpdir)(), "opencode-vault-anydoc");
+    (0, import_fs.mkdirSync)(dir, { recursive: true });
+    const outPath = (0, import_path.join)(dir, hash + ".md");
+    await this.convertWithAnydoc(absPath, outPath);
+    return outPath;
+  }
+  async convertWithAnydoc(inputPath, outputPath) {
+    const bin = this.plugin.settings.anydocBinary || "anydoc";
+    await new Promise((resolve, reject) => {
+      var _a;
+      const child = this.spawnCommand(bin, [inputPath, "-o", outputPath]);
+      let err = "";
+      (_a = child.stderr) == null ? void 0 : _a.on("data", (d) => err += d.toString());
+      child.on("error", (e) => reject(e));
+      child.on("close", (code) => {
+        if (code === 0) resolve();
+        else reject(new Error(`anydoc exited with code ${code}: ${err.trim().slice(0, 200)}`));
+      });
+    });
+  }
+  spawnCommand(bin, args, cwd) {
+    const isWin = process.platform === "win32";
+    const shell = isWin && !bin.includes("\\") && !bin.includes("/");
+    return (0, import_child_process.spawn)(bin, args, {
+      cwd,
+      shell,
+      windowsHide: true,
+      env: process.env,
+      stdio: ["ignore", "pipe", "pipe"]
+    });
   }
   // Context window size (tokens) of a model, parsed from `opencode models --verbose`.
   async getModelContextLimit(model) {

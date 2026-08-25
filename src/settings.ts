@@ -5,6 +5,8 @@ import type { Language } from "./i18n";
 export interface OpencodeSettings {
   language: Language;
   binaryPath: string;
+  anydocEnabled: boolean;
+  anydocBinary: string;
   model: string;
   agent: string;
   autoApprove: boolean;
@@ -17,6 +19,8 @@ export interface OpencodeSettings {
 export const DEFAULT_SETTINGS: OpencodeSettings = {
   language: "en",
   binaryPath: "opencode",
+  anydocEnabled: true,
+  anydocBinary: "anydoc",
   model: "opencode-go/deepseek-v4-flash",
   agent: "",
   autoApprove: true,
@@ -70,6 +74,33 @@ export class OpencodeSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.binaryPath)
           .onChange(async (value) => {
             this.plugin.settings.binaryPath = value.trim() || "opencode";
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName(t("Convert documents with anydoc"))
+      .setDesc(t(
+        "Run anydoc on attached documents (PDF, Word, Excel, etc.) and attach them as Markdown instead of the original file. Install with: npm install -g @firecrawl/anydoc"
+      ))
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.anydocEnabled)
+          .onChange(async (value) => {
+            this.plugin.settings.anydocEnabled = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName(t("Anydoc binary path"))
+      .setDesc(t("Command or full path to the anydoc executable (npm install -g @firecrawl/anydoc)."))
+      .addText((text) =>
+        text
+          .setPlaceholder("anydoc")
+          .setValue(this.plugin.settings.anydocBinary)
+          .onChange(async (value) => {
+            this.plugin.settings.anydocBinary = value.trim() || "anydoc";
             await this.plugin.saveSettings();
           })
       );

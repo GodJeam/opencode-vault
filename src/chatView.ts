@@ -905,8 +905,33 @@ private addWelcome(): void {
       this.pendingUser = null;
     }
 
-    const filePaths = this.attachments.map((a) => this.toAbsolutePath(a.path));
+const filePaths = await this.prepareAttachments();
     this.doRun(prompt, filePaths);
+  }
+
+  // Convert document attachments (PDF, Word, Excel, ...) to Markdown via anydoc
+  // before sending, so any model can read them regardless of image/format support.
+  private async prepareAttachments(): Promise<string[]> {
+    const paths: string[] = [];
+    const useAnydoc = this.plugin.settings.anydocEnabled;
+    for (const a of this.attachments) {
+      const abs = this.toAbsolutePath(a.path);
+      if (useAnydoc && this.isDocument(a.path)) {
+        try {
+          paths.push(await this.plugin.runner.convertDocument(abs));
+        } catch (e) {
+          new Notice(`${this.plugin.t("anydoc conversion failed")}: ${(e as Error).message}`);
+          paths.push(abs);
+        }
+      } else {
+        paths.push(abs);
+      }
+    }
+    return paths;
+  }
+
+  private isDocument(p: string): boolean {
+    return /\.(pdf|docx?|pptx?|xlsx?|odt|ods|odp|rtf|epub|csv)$/i.test(p);
   }
 
   private toAbsolutePath(vaultPath: string): string {

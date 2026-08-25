@@ -12,6 +12,13 @@ const IT: Record<string, string> = {
   "English": "Inglese",
   "Italian": "Italiano",
   "Binary path": "Percorso binario",
+  "Convert documents with anydoc": "Converti i documenti con anydoc",
+  "Run anydoc on attached documents (PDF, Word, Excel, etc.) and attach them as Markdown instead of the original file. Install with: npm install -g @firecrawl/anydoc":
+    "Esegue anydoc sugli allegati documento (PDF, Word, Excel, ecc.) e li allega come Markdown invece del file originale. Installazione: npm install -g @firecrawl/anydoc",
+  "Anydoc binary path": "Percorso binario anydoc",
+  "Command or full path to the anydoc executable (npm install -g @firecrawl/anydoc).":
+    "Comando o percorso completo dell'eseguibile anydoc (npm install -g @firecrawl/anydoc).",
+  "anydoc conversion failed": "Conversione anydoc fallita",
   "Command or full path to the opencode executable. Usually 'opencode' is enough if it is on your PATH. If you have issues, use the full path (e.g. on Windows .../npm/opencode.cmd, on macOS/Linux .../bin/opencode).":
     "Comando o percorso completo dell'eseguibile opencode. Di solito basta 'opencode' se è nel PATH. In caso di problemi usa il percorso completo (es. su Windows .../npm/opencode.cmd, su macOS/Linux .../bin/opencode).",
   "Model": "Modello",
