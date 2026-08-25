@@ -488,7 +488,6 @@ var IT = {
   "There is already a request in progress.": "C'\xE8 gi\xE0 una richiesta in corso.",
   "Select first the session to summarize.": "Seleziona prima la sessione da riassumere.",
   "Model set:": "Modello impostato:",
-  "Select a model...": "Scegli un modello...",
   "navigate": "navigare",
   "attach": "allegare",
   "close": "chiudere",

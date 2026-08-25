@@ -116,7 +116,6 @@ const IT: Record<string, string> = {
   "There is already a request in progress.": "C'è già una richiesta in corso.",
   "Select first the session to summarize.": "Seleziona prima la sessione da riassumere.",
   "Model set:": "Modello impostato:",
-  "Select a model...": "Scegli un modello...",
   "navigate": "navigare",
   "attach": "allegare",
   "close": "chiudere",

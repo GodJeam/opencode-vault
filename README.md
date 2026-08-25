@@ -26,6 +26,7 @@ An **Obsidian** plugin that integrates **opencode** directly into your vault: ch
 
 - Obsidian (desktop, Windows/macOS/Linux)
 - opencode CLI installed and reachable (e.g. `npm install -g opencode-ai`), with authenticated providers (`opencode auth login`)
+- [anydoc](https://github.com/firecrawl/anydoc) (optional, for document conversion): `npm install -g @firecrawl/anydoc`
 
 ### Platform requirements
 
@@ -69,6 +70,7 @@ npm run build
 - In the plugin settings, verify the binary path (default `opencode`) and the model.
 - Use **"Continue in a new session (by summarizing)"** to keep going when a session saturates its context.
 - The interface is in **English** by default; switch to Italian in Settings → Language (reload Obsidian to apply everywhere).
+- Save reusable **prompt templates** in Settings → Prompt templates and insert them in the chat with `/prompt`.
 
 ## Structure
 
@@ -76,7 +78,7 @@ npm run build
 - `src/chatView.ts` — chat view and UI
 - `src/opencodeRunner.ts` — CLI execution and event parsing
 - `src/settings.ts` — settings
-- `src/modals.ts` — modal dialogs (rename, stats, confirm, attachments)
+- `src/modals.ts` — modal dialogs (rename, stats, confirm, attachments, prompts)
 - `src/i18n.ts` — translations (English default, Italian optional)
 
 ## License
