@@ -78,7 +78,7 @@ export class OpencodeRunner {
     const provider = slash >= 0 ? model.slice(0, slash) : model;
     const out = await this.execCli(["models", provider, "--verbose"]);
     const limit = this.parseContextLimit(out, model);
-    this.contextLimitCache.set(model, limit);
+    if (limit > 0) this.contextLimitCache.set(model, limit);
     return limit;
   }
 

@@ -483,12 +483,14 @@ this.stopBtn.addEventListener("click", () => {
       this.suggestItems = models.map((m) => ({
         label: m === cur ? `${m}  ✓` : m,
         desc: m === cur ? this.plugin.t("active model") : undefined,
-        action: () => {
+action: () => {
           this.plugin.settings.model = m;
           void this.plugin.saveSettings();
           this.updateModelBtn();
           this.closeSuggest();
           this.inputEl.focus();
+          this.contextLimit = 0;
+          void this.refreshContext();
           new Notice(`${this.plugin.t("Model set:")} ${m}`);
         },
       }));
@@ -972,6 +974,7 @@ const proc = this.plugin.runner.runStream(prompt, filePaths, {
           this.viewSession = sid;
           this.plugin.settings.sessionId = sid;
           void this.plugin.saveSettings();
+          void this.refreshContext();
           if (this.pendingUser) {
             void this.plugin.appendHistory(sid, {
               role: "user",

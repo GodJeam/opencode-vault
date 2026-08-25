@@ -858,6 +858,8 @@ var ChatView = class extends import_obsidian3.ItemView {
           this.updateModelBtn();
           this.closeSuggest();
           this.inputEl.focus();
+          this.contextLimit = 0;
+          void this.refreshContext();
           new import_obsidian3.Notice(`${this.plugin.t("Model set:")} ${m}`);
         }
       }));
@@ -1304,6 +1306,7 @@ ${this.context.content}
           this.viewSession = sid;
           this.plugin.settings.sessionId = sid;
           void this.plugin.saveSettings();
+          void this.refreshContext();
           if (this.pendingUser) {
             void this.plugin.appendHistory(sid, {
               role: "user",
@@ -1721,7 +1724,7 @@ var OpencodeRunner = class {
     const provider = slash >= 0 ? model.slice(0, slash) : model;
     const out = await this.execCli(["models", provider, "--verbose"]);
     const limit = this.parseContextLimit(out, model);
-    this.contextLimitCache.set(model, limit);
+    if (limit > 0) this.contextLimitCache.set(model, limit);
     return limit;
   }
   parseContextLimit(out, model) {
