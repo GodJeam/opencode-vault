@@ -401,8 +401,8 @@ private buildStatsBar(container: HTMLElement): void {
         const model = this.plugin.settings.model || DEFAULT_SETTINGS.model;
         this.contextLimit = await this.plugin.runner.getModelContextLimit(model);
       }
-    } catch {
-      // ignora
+    } catch (e) {
+      console.error("[opencode-vault] refreshContext error:", e);
     }
     this.updateContextUsage();
   }

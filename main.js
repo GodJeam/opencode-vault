@@ -784,6 +784,7 @@ var ChatView = class extends import_obsidian3.ItemView {
         this.contextLimit = await this.plugin.runner.getModelContextLimit(model);
       }
     } catch (e) {
+      console.error("[opencode-vault] refreshContext error:", e);
     }
     this.updateContextUsage();
   }
@@ -1769,10 +1770,10 @@ var OpencodeRunner = class {
   // Accumulated token usage of a session, read from the opencode database.
   async getSessionTokens(sessionId) {
     var _a, _b, _c;
-    const query = `SELECT COALESCE(tokens_input,0) AS ti, COALESCE(tokens_output,0) AS to, COALESCE(tokens_reasoning,0) AS tr FROM session WHERE id='${sessionId}'`;
+    const query = `SELECT COALESCE(tokens_input,0) AS ti, COALESCE(tokens_output,0) AS tout, COALESCE(tokens_reasoning,0) AS tr FROM session WHERE id='${sessionId}'`;
     const rows = await this.runDbQuery(query);
     const r = (_a = rows[0]) != null ? _a : {};
-    return { input: Number((_b = r.ti) != null ? _b : 0), output: Number((_c = r.to) != null ? _c : 0) };
+    return { input: Number((_b = r.ti) != null ? _b : 0), output: Number((_c = r.tout) != null ? _c : 0) };
   }
   getVersion() {
     const s = this.plugin.settings;

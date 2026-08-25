@@ -124,11 +124,12 @@ export class OpencodeRunner {
 
   // Accumulated token usage of a session, read from the opencode database.
   async getSessionTokens(sessionId: string): Promise<{ input: number; output: number }> {
+    // "to" is a reserved keyword in SQLite: use a different alias for tokens_output.
     const query =
-      `SELECT COALESCE(tokens_input,0) AS ti, COALESCE(tokens_output,0) AS to, COALESCE(tokens_reasoning,0) AS tr FROM session WHERE id='${sessionId}'`;
-    const rows = (await this.runDbQuery(query)) as { ti?: number; to?: number }[];
+      `SELECT COALESCE(tokens_input,0) AS ti, COALESCE(tokens_output,0) AS tout, COALESCE(tokens_reasoning,0) AS tr FROM session WHERE id='${sessionId}'`;
+    const rows = (await this.runDbQuery(query)) as { ti?: number; tout?: number }[];
     const r = rows[0] ?? {};
-    return { input: Number(r.ti ?? 0), output: Number(r.to ?? 0) };
+    return { input: Number(r.ti ?? 0), output: Number(r.tout ?? 0) };
   }
 
   getVersion(): Promise<string> {
