@@ -689,17 +689,16 @@ action: () => {
   }
 
 private buildSuggestItems(char: string, query: string): SuggestItem[] {
-    let items: SuggestItem[];
-    if (char === "/") {
-      items = query.toLowerCase().startsWith("prompt")
-        ? this.promptItems(query.slice(6))
-        : this.commandItems();
-    } else if (char === "@") {
-      items = this.fileItems();
-    } else {
-      items = this.actionItems();
-    }
     const q = query.toLowerCase();
+    if (char === "/") {
+      if (q.startsWith("prompt")) return this.promptItems(query.slice(6));
+      return this.filterItems(this.commandItems(), q);
+    }
+    if (char === "@") return this.filterItems(this.fileItems(), q);
+    return this.filterItems(this.actionItems(), q);
+  }
+
+  private filterItems(items: SuggestItem[], q: string): SuggestItem[] {
     if (!q) return items;
     return items.filter(
       (x) => x.label.toLowerCase().includes(q) || (x.desc ?? "").toLowerCase().includes(q)
@@ -742,7 +741,7 @@ private buildSuggestItems(char: string, query: string): SuggestItem[] {
 
   private startPromptSelection(): void {
     this.closeSuggest();
-    this.inputEl.value = "/prompt ";
+    this.inputEl.value = "/prompt";
     this.inputEl.setSelectionRange(this.inputEl.value.length, this.inputEl.value.length);
     this.inputEl.focus();
     this.onInputChange();

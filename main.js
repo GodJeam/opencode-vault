@@ -1165,15 +1165,15 @@ var ChatView = class extends import_obsidian3.ItemView {
     return { char: ch, start, query: token.slice(1).toLowerCase() };
   }
   buildSuggestItems(char, query) {
-    let items;
-    if (char === "/") {
-      items = query.toLowerCase().startsWith("prompt") ? this.promptItems(query.slice(6)) : this.commandItems();
-    } else if (char === "@") {
-      items = this.fileItems();
-    } else {
-      items = this.actionItems();
-    }
     const q = query.toLowerCase();
+    if (char === "/") {
+      if (q.startsWith("prompt")) return this.promptItems(query.slice(6));
+      return this.filterItems(this.commandItems(), q);
+    }
+    if (char === "@") return this.filterItems(this.fileItems(), q);
+    return this.filterItems(this.actionItems(), q);
+  }
+  filterItems(items, q) {
     if (!q) return items;
     return items.filter(
       (x) => {
@@ -1218,7 +1218,7 @@ var ChatView = class extends import_obsidian3.ItemView {
   }
   startPromptSelection() {
     this.closeSuggest();
-    this.inputEl.value = "/prompt ";
+    this.inputEl.value = "/prompt";
     this.inputEl.setSelectionRange(this.inputEl.value.length, this.inputEl.value.length);
     this.inputEl.focus();
     this.onInputChange();
