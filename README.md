@@ -6,21 +6,15 @@ An **Obsidian** plugin that integrates **opencode** directly into your vault: ch
 
 ## Features
 
-- **Chat with opencode** in an Obsidian pane, with streaming responses and Markdown rendering.
-- **Quick commands**: `/` for commands (model, new session, current note, attach file, stats, pin, rename, prompt), `@` to attach vault files, `!` for quick actions.
-- **Prompt templates**: save reusable prompts in the settings and insert them in the chat with `/prompt`.
-- **Inline model picker** in the prompt box (list shown above the composer, like opencode desktop).
-- **Multiple chat windows**: side-by-side chat panes, each with its own session, so you can manage several sessions at the same time.
-- **Session management**: pin, rename, delete; the list shows pinned sessions plus the 10 most recent.
-- **Persistent per-session history** stored in Obsidian (last 100 messages per session).
-- **Reasoning and executed steps**: shows the model's reasoning and the tools used (with expandable input/output).
-- **Token and cost stats**: per-message and totals (5 hours, week, month).
-- **Live activity counter**: shows how many events are arriving during a response and the time since the last update, so it is easy to tell whether the model is still working or stuck.
-- **Session context usage**: a small bar in the chat footer shows the context window used (percentage and tokens) for the current session/model.
-- **Copy responses**: a one-click copy button on every message, plus normal mouse text selection.
-- **Continue past the context limit**: when a session reaches its token limit, a command summarizes/continues in a new session (with fallback on local history).
-- **Language**: English by default, optional Italian (Settings → Language).
-- **Document conversion**: attached documents (PDF, Word, Excel, etc.) are converted to Markdown with [anydoc](https://github.com/firecrawl/anydoc) before being sent, so any model can read them.
+- **Chat with opencode** in an Obsidian pane, with streaming responses.
+- **Slash commands**: `/` for actions (model, new session, stats, prompts, ...), `@` to attach vault files, `!` for quick actions.
+- **Reusable prompt templates** inserted in the chat with `/prompt`.
+- **Multiple chat windows**, each with its own session, to work on several sessions at the same time.
+- **Session management**: pin, rename and delete sessions.
+- **Document conversion**: PDF, Word, Excel, etc. are converted to Markdown with [anydoc](https://github.com/firecrawl/anydoc) before being sent, so any model can read them.
+- **Context and cost awareness**: session context usage bar, token/cost stats, and a live indicator of whether the model is still working or stuck.
+- **Continue past the context limit**: when a session saturates, summarize and continue in a new session.
+- **English by default**, Italian optional (Settings → Language).
 
 ## Requirements
 
