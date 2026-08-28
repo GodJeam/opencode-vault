@@ -14,7 +14,6 @@ An **Obsidian** plugin that integrates **opencode** directly into your vault: ch
 - **Document conversion**: PDF, Word, Excel, etc. are converted to Markdown with [anydoc](https://github.com/firecrawl/anydoc) before being sent, so any model can read them.
 - **Context and cost awareness**: session context usage bar, token/cost stats, and a live indicator of whether the model is still working or stuck.
 - **Continue past the context limit**: when a session saturates, summarize and continue in a new session.
-- **English by default**, Italian optional (Settings → Language).
 
 ## Requirements
 
