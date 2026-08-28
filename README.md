@@ -68,12 +68,9 @@ npm run build
 
 ## Structure
 
-- `src/main.ts` — entry point and commands
-- `src/chatView.ts` — chat view and UI
-- `src/opencodeRunner.ts` — CLI execution and event parsing
-- `src/settings.ts` — settings
-- `src/modals.ts` — modal dialogs (rename, stats, confirm, attachments, prompts)
-- `src/i18n.ts` — translations (English default, Italian optional)
+- `src/` — TypeScript source
+- `build/` — build tooling (esbuild config, tsconfig)
+- `main.js` / `manifest.json` / `styles.css` — built plugin files (copy into the vault)
 
 ## License
 

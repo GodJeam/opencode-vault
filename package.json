@@ -4,8 +4,8 @@
   "description": "Opencode integration for Obsidian",
   "main": "main.js",
   "scripts": {
-    "dev": "node esbuild.config.mjs",
-    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production"
+    "dev": "node build/esbuild.config.mjs",
+    "build": "tsc -noEmit -skipLibCheck -p build/tsconfig.json && node build/esbuild.config.mjs production"
   },
   "keywords": [
     "obsidian",

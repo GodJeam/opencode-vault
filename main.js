@@ -1,8 +1,8 @@
-"use strict";
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
@@ -16,6 +16,7 @@ var __copyProps = (to, from, except, desc) => {
   return to;
 };
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __publicField = (obj, key, value) => __defNormalProp(obj, typeof key !== "symbol" ? key + "" : key, value);
 
 // src/main.ts
 var main_exports = {};
@@ -216,6 +217,7 @@ var DEFAULT_SETTINGS = {
 var OpencodeSettingTab = class extends import_obsidian2.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
+    __publicField(this, "plugin");
     this.plugin = plugin;
   }
   display() {
@@ -584,26 +586,45 @@ var CHAT_VIEW_TYPE = "opencode-chat-view";
 var ChatView = class extends import_obsidian3.ItemView {
   constructor(leaf, plugin) {
     super(leaf);
-    this.attachments = [];
-    this.pendingUser = null;
-    this.currentProc = null;
-    this.running = false;
-    this.context = null;
-    this.renderTimer = null;
-    this.hadStreamError = false;
-    this.stoppedByUser = false;
-    this.lastStderr = "";
-    this.stats = { input: 0, output: 0, total: 0, cost: 0 };
-    this.contextLimit = 0;
-    this.contextUsed = 0;
-    this.contextBaseInput = 0;
-    this.contextRunInput = 0;
-    this.activityTimer = null;
-    this.suggestItems = [];
-    this.suggestIndex = 0;
-    this.suggestOpen = false;
-    this.suggestTrigger = null;
-    this.vaultPaths = null;
+    __publicField(this, "plugin");
+    __publicField(this, "messagesEl");
+    __publicField(this, "inputEl");
+    __publicField(this, "contextBar");
+    __publicField(this, "contextLabelEl");
+    __publicField(this, "contextClearBtn");
+    __publicField(this, "sessionSelect");
+    __publicField(this, "pinBtn");
+    __publicField(this, "renameBtn");
+    __publicField(this, "deleteBtn");
+    __publicField(this, "modelBtn");
+    __publicField(this, "sendBtn");
+    __publicField(this, "stopBtn");
+    __publicField(this, "statsBar");
+    __publicField(this, "contextEl");
+    __publicField(this, "contextFillEl");
+    __publicField(this, "attachmentsBar");
+    __publicField(this, "suggestEl");
+    __publicField(this, "attachments", []);
+    __publicField(this, "viewSession");
+    __publicField(this, "pendingUser", null);
+    __publicField(this, "currentProc", null);
+    __publicField(this, "running", false);
+    __publicField(this, "context", null);
+    __publicField(this, "renderTimer", null);
+    __publicField(this, "hadStreamError", false);
+    __publicField(this, "stoppedByUser", false);
+    __publicField(this, "lastStderr", "");
+    __publicField(this, "stats", { input: 0, output: 0, total: 0, cost: 0 });
+    __publicField(this, "contextLimit", 0);
+    __publicField(this, "contextUsed", 0);
+    __publicField(this, "contextBaseInput", 0);
+    __publicField(this, "contextRunInput", 0);
+    __publicField(this, "activityTimer", null);
+    __publicField(this, "suggestItems", []);
+    __publicField(this, "suggestIndex", 0);
+    __publicField(this, "suggestOpen", false);
+    __publicField(this, "suggestTrigger", null);
+    __publicField(this, "vaultPaths", null);
     this.plugin = plugin;
     this.viewSession = plugin.settings.sessionId;
   }
@@ -1740,10 +1761,18 @@ var AssistantBubble = class {
     this.row = row;
     this.app = app;
     this.view = view;
-    this.steps = /* @__PURE__ */ new Map();
-    this.rawText = "";
-    this.rawReasoning = "";
-    this.renderTimer = null;
+    __publicField(this, "reasoningEl");
+    __publicField(this, "reasoningContent");
+    __publicField(this, "stepsEl");
+    __publicField(this, "steps", /* @__PURE__ */ new Map());
+    __publicField(this, "contentEl");
+    __publicField(this, "statsEl");
+    __publicField(this, "status");
+    __publicField(this, "rawText", "");
+    __publicField(this, "rawReasoning", "");
+    __publicField(this, "lastTokens");
+    __publicField(this, "lastCost");
+    __publicField(this, "renderTimer", null);
     this.view.metaWithCopy(this.row, this.view.plugin.t("Opencode"), () => this.rawText);
     this.reasoningEl = this.row.createEl("details", { cls: "opencode-reasoning hidden" });
     const summary = this.reasoningEl.createEl("summary");
@@ -1913,9 +1942,10 @@ var import_os = require("os");
 var import_obsidian4 = require("obsidian");
 var OpencodeRunner = class {
   constructor(plugin) {
-    this.resolvedBinary = null;
-    this.resolvedBinaryTried = false;
-    this.contextLimitCache = /* @__PURE__ */ new Map();
+    __publicField(this, "plugin");
+    __publicField(this, "resolvedBinary", null);
+    __publicField(this, "resolvedBinaryTried", false);
+    __publicField(this, "contextLimitCache", /* @__PURE__ */ new Map());
     this.plugin = plugin;
   }
   // Convert a document (PDF, Word, Excel, ...) to Markdown using anydoc
@@ -2343,7 +2373,9 @@ var OpencodeRunner = class {
 var OpencodePlugin = class extends import_obsidian5.Plugin {
   constructor() {
     super(...arguments);
-    this.histories = {};
+    __publicField(this, "settings");
+    __publicField(this, "histories", {});
+    __publicField(this, "runner");
   }
   async onload() {
     var _a;
