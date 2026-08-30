@@ -1,4 +1,4 @@
-import { App, FileSystemAdapter, ItemView, MarkdownRenderer, Notice, WorkspaceLeaf, setIcon } from "obsidian";
+import { App, FileSystemAdapter, ItemView, MarkdownRenderer, Notice, TFile, WorkspaceLeaf, setIcon } from "obsidian";
 import type OpencodePlugin from "./main";
 import type { HistoryAssistant } from "./main";
 import { DEFAULT_SETTINGS } from "./settings";
@@ -976,7 +976,20 @@ const filePaths = await this.prepareAttachments();
           paths.push(await this.plugin.runner.convertDocument(abs));
         } catch (e) {
           new Notice(`${this.plugin.t("anydoc conversion failed")}: ${(e as Error).message}`);
-          paths.push(abs);
+          // If the original file is huge, attaching it raw would store an
+          // unusable base64 copy in the opencode database. Skip it instead.
+          const maxMB = this.plugin.settings.maxAttachMB || 20;
+          const size = await this.fileSize(a.path);
+          if (size !== null && size > maxMB * 1024 * 1024) {
+            new Notice(
+              substitute(
+                this.plugin.t("Attachment skipped: the file is larger than $1 MB and could not be converted, so it was not attached."),
+                maxMB
+              )
+            );
+          } else {
+            paths.push(abs);
+          }
         }
       } else {
         paths.push(abs);
@@ -987,6 +1000,15 @@ const filePaths = await this.prepareAttachments();
 
   private isDocument(p: string): boolean {
     return /\.(pdf|docx?|pptx?|xlsx?|odt|ods|odp|rtf|epub|csv)$/i.test(p);
+  }
+
+  private async fileSize(vaultPath: string): Promise<number | null> {
+    try {
+      const file = this.app.vault.getAbstractFileByPath(vaultPath);
+      return file instanceof TFile ? file.stat.size : null;
+    } catch {
+      return null;
+    }
   }
 
   private toAbsolutePath(vaultPath: string): string {

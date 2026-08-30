@@ -212,7 +212,11 @@ var DEFAULT_SETTINGS = {
   showToolIO: true,
   sessionId: "",
   pinned: [],
-  prompts: []
+  prompts: [],
+  dbAutoCleanup: true,
+  dbCleanupMaxMB: 5,
+  dbCleanupAgeDays: 7,
+  maxAttachMB: 20
 };
 var OpencodeSettingTab = class extends import_obsidian2.PluginSettingTab {
   constructor(app, plugin) {
@@ -310,6 +314,53 @@ var OpencodeSettingTab = class extends import_obsidian2.PluginSettingTab {
       (toggle) => toggle.setValue(this.plugin.settings.showToolIO).onChange(async (value) => {
         this.plugin.settings.showToolIO = value;
         await this.plugin.saveSettings();
+      })
+    );
+    containerEl.createEl("h2", { text: t("Database self-cleanup") });
+    new import_obsidian2.Setting(containerEl).setName(t("Enable automatic cleanup")).setDesc(t(
+      "Periodically remove large file attachments from the opencode database (opencode.db), which would otherwise bloat it. Only file attachments older than the minimum age and larger than the max size are removed; conversation text is never touched."
+    )).addToggle(
+      (toggle) => toggle.setValue(this.plugin.settings.dbAutoCleanup).onChange(async (value) => {
+        this.plugin.settings.dbAutoCleanup = value;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian2.Setting(containerEl).setName(t("Max part size (MB)")).setDesc(t("File attachments larger than this (in the database) are removed.")).addText(
+      (text) => text.setPlaceholder("5").setValue(String(this.plugin.settings.dbCleanupMaxMB)).onChange(async (value) => {
+        const n = parseInt(value, 10);
+        this.plugin.settings.dbCleanupMaxMB = Number.isFinite(n) && n > 0 ? n : 5;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian2.Setting(containerEl).setName(t("Minimum age (days)")).setDesc(t("Only attachments older than this are removed, so recent files stay available.")).addText(
+      (text) => text.setPlaceholder("7").setValue(String(this.plugin.settings.dbCleanupAgeDays)).onChange(async (value) => {
+        const n = parseInt(value, 10);
+        this.plugin.settings.dbCleanupAgeDays = Number.isFinite(n) && n >= 0 ? n : 7;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian2.Setting(containerEl).setName(t("Max attachment size (MB)")).setDesc(t(
+      "When anydoc fails to convert a document, files larger than this are not attached to the request, to avoid storing unusable copies in the database."
+    )).addText(
+      (text) => text.setPlaceholder("20").setValue(String(this.plugin.settings.maxAttachMB)).onChange(async (value) => {
+        const n = parseInt(value, 10);
+        this.plugin.settings.maxAttachMB = Number.isFinite(n) && n > 0 ? n : 20;
+        await this.plugin.saveSettings();
+      })
+    );
+    new import_obsidian2.Setting(containerEl).setName(t("Run cleanup now")).setDesc(t("Remove oversized file attachments immediately, regardless of age.")).addButton(
+      (btn) => btn.setButtonText(t("Cleanup")).onClick(async () => {
+        btn.setDisabled(true);
+        btn.setButtonText(t("Cleaning..."));
+        try {
+          await this.plugin.runner.pruneOversizedParts(true);
+          new import_obsidian2.Notice(t("Cleanup done."));
+        } catch (e) {
+          new import_obsidian2.Notice(`${t("Error:")} ${e.message}`);
+        } finally {
+          btn.setDisabled(false);
+          btn.setButtonText(t("Cleanup"));
+        }
       })
     );
     containerEl.createEl("h2", { text: t("Prompt templates") });
@@ -432,6 +483,21 @@ var IT = {
   "Show the model's reasoning blocks (uses the --thinking flag).": "Mostra i blocchi di reasoning del modello (usa il flag --thinking).",
   "Show tool details": "Mostra dettagli degli strumenti",
   "Show the input and output of every tool executed during the request, in collapsible blocks.": "Mostra input e output di ogni strumento eseguito durante la richiesta, in blocchi apribili con un clic.",
+  "Database self-cleanup": "Pulizia automatica del database",
+  "Enable automatic cleanup": "Attiva pulizia automatica",
+  "Periodically remove large file attachments from the opencode database (opencode.db), which would otherwise bloat it. Only file attachments older than the minimum age and larger than the max size are removed; conversation text is never touched.": "Rimuove periodicamente gli allegati file di grandi dimensioni dal database di opencode (opencode.db), che altrimenti si gonfia. Vengono rimossi solo gli allegati pi\xF9 vecchi dell'et\xE0 minima e pi\xF9 grandi della dimensione massima; il testo delle conversazioni non viene mai toccato.",
+  "Max part size (MB)": "Dimensione massima parte (MB)",
+  "File attachments larger than this (in the database) are removed.": "Gli allegati file pi\xF9 grandi di questo valore (nel database) vengono rimossi.",
+  "Minimum age (days)": "Et\xE0 minima (giorni)",
+  "Only attachments older than this are removed, so recent files stay available.": "Vengono rimossi solo gli allegati pi\xF9 vecchi di questo periodo, cos\xEC i file recenti restano disponibili.",
+  "Max attachment size (MB)": "Dimensione massima allegato (MB)",
+  "When anydoc fails to convert a document, files larger than this are not attached to the request, to avoid storing unusable copies in the database.": "Quando anydoc non riesce a convertire un documento, i file pi\xF9 grandi di questo valore non vengono allegati alla richiesta, per evitare di salvare copie inutilizzabili nel database.",
+  "Run cleanup now": "Esegui pulizia ora",
+  "Remove oversized file attachments immediately, regardless of age.": "Rimuove subito gli allegati file troppo grandi, indipendentemente dall'et\xE0.",
+  "Cleanup": "Pulisci",
+  "Cleaning...": "Pulizia in corso...",
+  "Cleanup done.": "Pulizia completata.",
+  "Attachment skipped: the file is larger than $1 MB and could not be converted, so it was not attached.": "Allegato saltato: il file \xE8 pi\xF9 grande di $1 MB e non \xE8 stato possibile convertirlo, quindi non \xE8 stato allegato.",
   "Test connection": "Testa connessione",
   "Run 'opencode --version' to verify the binary is reachable.": "Esegue 'opencode --version' per verificare che il binario sia raggiungibile.",
   "Test": "Test",
@@ -1462,7 +1528,18 @@ ${this.context.content}
           paths.push(await this.plugin.runner.convertDocument(abs));
         } catch (e) {
           new import_obsidian3.Notice(`${this.plugin.t("anydoc conversion failed")}: ${e.message}`);
-          paths.push(abs);
+          const maxMB = this.plugin.settings.maxAttachMB || 20;
+          const size = await this.fileSize(a.path);
+          if (size !== null && size > maxMB * 1024 * 1024) {
+            new import_obsidian3.Notice(
+              substitute(
+                this.plugin.t("Attachment skipped: the file is larger than $1 MB and could not be converted, so it was not attached."),
+                maxMB
+              )
+            );
+          } else {
+            paths.push(abs);
+          }
         }
       } else {
         paths.push(abs);
@@ -1472,6 +1549,14 @@ ${this.context.content}
   }
   isDocument(p) {
     return /\.(pdf|docx?|pptx?|xlsx?|odt|ods|odp|rtf|epub|csv)$/i.test(p);
+  }
+  async fileSize(vaultPath) {
+    try {
+      const file = this.app.vault.getAbstractFileByPath(vaultPath);
+      return file instanceof import_obsidian3.TFile ? file.stat.size : null;
+    } catch (e) {
+      return null;
+    }
   }
   toAbsolutePath(vaultPath) {
     const adapter = this.app.vault.adapter;
@@ -2044,6 +2129,24 @@ var OpencodeRunner = class {
     const r = (_a = rows[0]) != null ? _a : {};
     return { input: Number((_b = r.ti) != null ? _b : 0), output: Number((_c = r.tout) != null ? _c : 0) };
   }
+  // Remove oversized file attachments from the opencode database. Attached
+  // documents are stored by opencode as base64 "file" parts: an unreadable
+  // (e.g. scanned) PDF can easily add tens of MB per attachment and bloat the
+  // DB, causing slow writes and "database is locked" errors. Only "file" parts
+  // are targeted; conversation text/reasoning parts are never touched.
+  async pruneOversizedParts(ignoreAge = false) {
+    var _a;
+    const s = this.plugin.settings;
+    if (!s.dbAutoCleanup) return;
+    const maxBytes = Math.max(1, s.dbCleanupMaxMB || 5) * 1024 * 1024;
+    const ageDays = Math.max(0, (_a = s.dbCleanupAgeDays) != null ? _a : 7);
+    const cutoff = Math.floor(Date.now() / 1e3) - ageDays * 86400;
+    const q = `DELETE FROM part WHERE data LIKE '%"type":"file%' AND length(data) > ${maxBytes}` + (ignoreAge ? "" : ` AND time_created < ${cutoff}`);
+    try {
+      await this.runDbQuery(q);
+    } catch (e) {
+    }
+  }
   getVersion() {
     const s = this.plugin.settings;
     return new Promise((resolve, reject) => {
@@ -2384,6 +2487,7 @@ var OpencodePlugin = class extends import_obsidian5.Plugin {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, rest);
     this.histories = histories != null ? histories : {};
     this.runner = new OpencodeRunner(this);
+    void this.runner.pruneOversizedParts();
     const t = this.t.bind(this);
     this.registerView(CHAT_VIEW_TYPE, (leaf) => new ChatView(leaf, this));
     this.addRibbonIcon("bot", t("New opencode chat"), () => {

@@ -32,6 +32,8 @@ export default class OpencodePlugin extends Plugin {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, rest);
     this.histories = histories ?? {};
     this.runner = new OpencodeRunner(this);
+    // Self-regulate the database: prune oversized file attachments on startup.
+    void this.runner.pruneOversizedParts();
     const t = this.t.bind(this);
 
     this.registerView(CHAT_VIEW_TYPE, (leaf) => new ChatView(leaf, this));

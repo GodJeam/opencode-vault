@@ -21,6 +21,10 @@ export interface OpencodeSettings {
   sessionId: string;
   pinned: string[];
   prompts: PromptTemplate[];
+  dbAutoCleanup: boolean;
+  dbCleanupMaxMB: number;
+  dbCleanupAgeDays: number;
+  maxAttachMB: number;
 }
 
 export const DEFAULT_SETTINGS: OpencodeSettings = {
@@ -36,6 +40,10 @@ export const DEFAULT_SETTINGS: OpencodeSettings = {
   sessionId: "",
   pinned: [],
   prompts: [],
+  dbAutoCleanup: true,
+  dbCleanupMaxMB: 5,
+  dbCleanupAgeDays: 7,
+  maxAttachMB: 20,
 };
 
 export class OpencodeSettingTab extends PluginSettingTab {
@@ -209,6 +217,85 @@ export class OpencodeSettingTab extends PluginSettingTab {
             this.plugin.settings.showToolIO = value;
             await this.plugin.saveSettings();
           })
+      );
+
+    containerEl.createEl("h2", { text: t("Database self-cleanup") });
+
+    new Setting(containerEl)
+      .setName(t("Enable automatic cleanup"))
+      .setDesc(t(
+        "Periodically remove large file attachments from the opencode database (opencode.db), which would otherwise bloat it. Only file attachments older than the minimum age and larger than the max size are removed; conversation text is never touched."
+      ))
+      .addToggle((toggle) =>
+        toggle
+          .setValue(this.plugin.settings.dbAutoCleanup)
+          .onChange(async (value) => {
+            this.plugin.settings.dbAutoCleanup = value;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName(t("Max part size (MB)"))
+      .setDesc(t("File attachments larger than this (in the database) are removed."))
+      .addText((text) =>
+        text
+          .setPlaceholder("5")
+          .setValue(String(this.plugin.settings.dbCleanupMaxMB))
+          .onChange(async (value) => {
+            const n = parseInt(value, 10);
+            this.plugin.settings.dbCleanupMaxMB = Number.isFinite(n) && n > 0 ? n : 5;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName(t("Minimum age (days)"))
+      .setDesc(t("Only attachments older than this are removed, so recent files stay available."))
+      .addText((text) =>
+        text
+          .setPlaceholder("7")
+          .setValue(String(this.plugin.settings.dbCleanupAgeDays))
+          .onChange(async (value) => {
+            const n = parseInt(value, 10);
+            this.plugin.settings.dbCleanupAgeDays = Number.isFinite(n) && n >= 0 ? n : 7;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName(t("Max attachment size (MB)"))
+      .setDesc(t(
+        "When anydoc fails to convert a document, files larger than this are not attached to the request, to avoid storing unusable copies in the database."
+      ))
+      .addText((text) =>
+        text
+          .setPlaceholder("20")
+          .setValue(String(this.plugin.settings.maxAttachMB))
+          .onChange(async (value) => {
+            const n = parseInt(value, 10);
+            this.plugin.settings.maxAttachMB = Number.isFinite(n) && n > 0 ? n : 20;
+            await this.plugin.saveSettings();
+          })
+      );
+
+    new Setting(containerEl)
+      .setName(t("Run cleanup now"))
+      .setDesc(t("Remove oversized file attachments immediately, regardless of age."))
+      .addButton((btn) =>
+        btn.setButtonText(t("Cleanup")).onClick(async () => {
+          btn.setDisabled(true);
+          btn.setButtonText(t("Cleaning..."));
+          try {
+            await this.plugin.runner.pruneOversizedParts(true);
+            new Notice(t("Cleanup done."));
+          } catch (e) {
+            new Notice(`${t("Error:")} ${(e as Error).message}`);
+          } finally {
+            btn.setDisabled(false);
+            btn.setButtonText(t("Cleanup"));
+          }
+        })
       );
 
     containerEl.createEl("h2", { text: t("Prompt templates") });

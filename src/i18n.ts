@@ -50,6 +50,27 @@ const IT: Record<string, string> = {
   "Show tool details": "Mostra dettagli degli strumenti",
   "Show the input and output of every tool executed during the request, in collapsible blocks.":
     "Mostra input e output di ogni strumento eseguito durante la richiesta, in blocchi apribili con un clic.",
+  "Database self-cleanup": "Pulizia automatica del database",
+  "Enable automatic cleanup": "Attiva pulizia automatica",
+  "Periodically remove large file attachments from the opencode database (opencode.db), which would otherwise bloat it. Only file attachments older than the minimum age and larger than the max size are removed; conversation text is never touched.":
+    "Rimuove periodicamente gli allegati file di grandi dimensioni dal database di opencode (opencode.db), che altrimenti si gonfia. Vengono rimossi solo gli allegati più vecchi dell'età minima e più grandi della dimensione massima; il testo delle conversazioni non viene mai toccato.",
+  "Max part size (MB)": "Dimensione massima parte (MB)",
+  "File attachments larger than this (in the database) are removed.":
+    "Gli allegati file più grandi di questo valore (nel database) vengono rimossi.",
+  "Minimum age (days)": "Età minima (giorni)",
+  "Only attachments older than this are removed, so recent files stay available.":
+    "Vengono rimossi solo gli allegati più vecchi di questo periodo, così i file recenti restano disponibili.",
+  "Max attachment size (MB)": "Dimensione massima allegato (MB)",
+  "When anydoc fails to convert a document, files larger than this are not attached to the request, to avoid storing unusable copies in the database.":
+    "Quando anydoc non riesce a convertire un documento, i file più grandi di questo valore non vengono allegati alla richiesta, per evitare di salvare copie inutilizzabili nel database.",
+  "Run cleanup now": "Esegui pulizia ora",
+  "Remove oversized file attachments immediately, regardless of age.":
+    "Rimuove subito gli allegati file troppo grandi, indipendentemente dall'età.",
+  "Cleanup": "Pulisci",
+  "Cleaning...": "Pulizia in corso...",
+  "Cleanup done.": "Pulizia completata.",
+  "Attachment skipped: the file is larger than $1 MB and could not be converted, so it was not attached.":
+    "Allegato saltato: il file è più grande di $1 MB e non è stato possibile convertirlo, quindi non è stato allegato.",
   "Test connection": "Testa connessione",
   "Run 'opencode --version' to verify the binary is reachable.":
     "Esegue 'opencode --version' per verificare che il binario sia raggiungibile.",

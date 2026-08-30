@@ -177,6 +177,27 @@ export class OpencodeRunner {
     return { input: Number(r.ti ?? 0), output: Number(r.tout ?? 0) };
   }
 
+  // Remove oversized file attachments from the opencode database. Attached
+  // documents are stored by opencode as base64 "file" parts: an unreadable
+  // (e.g. scanned) PDF can easily add tens of MB per attachment and bloat the
+  // DB, causing slow writes and "database is locked" errors. Only "file" parts
+  // are targeted; conversation text/reasoning parts are never touched.
+  async pruneOversizedParts(ignoreAge = false): Promise<void> {
+    const s = this.plugin.settings;
+    if (!s.dbAutoCleanup) return;
+    const maxBytes = Math.max(1, s.dbCleanupMaxMB || 5) * 1024 * 1024;
+    const ageDays = Math.max(0, s.dbCleanupAgeDays ?? 7);
+    const cutoff = Math.floor(Date.now() / 1000) - ageDays * 86400;
+    const q =
+      `DELETE FROM part WHERE data LIKE '%"type":"file%' AND length(data) > ${maxBytes}` +
+      (ignoreAge ? "" : ` AND time_created < ${cutoff}`);
+    try {
+      await this.runDbQuery(q);
+    } catch {
+      // best effort: the database may be briefly locked (retry on next run)
+    }
+  }
+
   getVersion(): Promise<string> {
     const s = this.plugin.settings;
     return new Promise((resolve, reject) => {
