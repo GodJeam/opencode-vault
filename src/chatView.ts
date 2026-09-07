@@ -50,7 +50,7 @@ private statsBar!: HTMLElement;
   private pendingUser: { text: string; contextLabel?: string } | null = null;
   private currentProc: RunHandle | null = null;
   private running = false;
-  private context: TurnContext | null = null;
+private context: TurnContext | null = null;
   private renderTimer: number | null = null;
   private hadStreamError = false;
   private stoppedByUser = false;
@@ -461,12 +461,25 @@ private buildStatsBar(container: HTMLElement): void {
     this.sendBtn.setText(this.plugin.t("Send"));
     this.sendBtn.addEventListener("click", () => this.send());
 
-    this.stopBtn = buttons.createEl("button", { cls: "opencode-stop-btn" });
+this.stopBtn = buttons.createEl("button", { cls: "opencode-stop-btn" });
     this.stopBtn.setText(this.plugin.t("Stop"));
     this.stopBtn.addClass("hidden");
 this.stopBtn.addEventListener("click", () => {
       this.stoppedByUser = true;
       this.currentProc?.abort();
+      // Fallback: if the process does not terminate cleanly (hung process),
+      // release the UI anyway so the chat is not stuck forever.
+      window.setTimeout(() => {
+        if (!this.running) return;
+        this.currentProc?.abort();
+        this.running = false;
+        this.pendingUser = null;
+        if (this.activityTimer !== null) {
+          clearInterval(this.activityTimer);
+          this.activityTimer = null;
+        }
+        this.setRunningUI(false);
+      }, 3000);
     });
   }
 
@@ -559,9 +572,11 @@ action: () => {
         bubble.finalize();
         this.addErrorBubble(this.friendlyError(msg));
       },
-      onDone: (code) => {
-        if (this.currentProc === proc) this.currentProc = null;
+onDone: (code) => {
+        const isCurrent = this.currentProc === proc;
+        if (isCurrent) this.currentProc = null;
         bubble.finalize();
+        if (!isCurrent) return;
         this.running = false;
         this.setRunningUI(false);
         const failed = code !== 0 || this.hadStreamError;
@@ -1137,7 +1152,8 @@ onDone: (code) => {
           clearInterval(this.activityTimer);
           this.activityTimer = null;
         }
-        if (this.currentProc === proc) this.currentProc = null;
+        const isCurrent = this.currentProc === proc;
+        if (isCurrent) this.currentProc = null;
         bubble.finalize();
         const snap = bubble.getSnapshot();
         const sid = this.viewSession;
@@ -1150,6 +1166,7 @@ onDone: (code) => {
             cost: snap.cost,
           });
         }
+        if (!isCurrent) return;
         this.pendingUser = null;
         if (code !== 0 && !this.hadStreamError && !this.stoppedByUser) {
           if (/session not found/i.test(this.lastStderr) && this.viewSession) {
@@ -1330,6 +1347,7 @@ private statsEl: HTMLElement;
   private lastTokens?: { total?: number; input?: number; output?: number };
   private lastCost?: number;
   private renderTimer: number | null = null;
+  private reasoningTimer: number | null = null;
 
   constructor(
     private row: HTMLElement,
@@ -1387,11 +1405,32 @@ setText(text: string): void {
     }
   }
 
-  setReasoning(text: string): void {
+setReasoning(text: string): void {
     this.rawReasoning = text;
     this.reasoningEl.removeClass("hidden");
-    this.reasoningContent.textContent = text;
+    // Reasoning blocks can grow very large and arrive frequently: updating the
+    // DOM on every event would saturate the main thread and freeze the UI (the
+    // Stop button included). Throttle and cap the rendered text.
+    this.scheduleReasoningRender();
     this.view.scheduleScroll();
+  }
+
+  private scheduleReasoningRender(): void {
+    if (this.reasoningTimer !== null) clearTimeout(this.reasoningTimer);
+    this.reasoningTimer = window.setTimeout(() => this.flushReasoningRender(), 120);
+  }
+
+  private flushReasoningRender(): void {
+    if (this.reasoningTimer !== null) {
+      clearTimeout(this.reasoningTimer);
+      this.reasoningTimer = null;
+    }
+    const MAX = 50000;
+    const shown =
+      this.rawReasoning.length > MAX
+        ? "… " + this.rawReasoning.slice(this.rawReasoning.length - MAX)
+        : this.rawReasoning;
+    this.reasoningContent.textContent = shown;
   }
 
 addStep(step: StepInfo): void {

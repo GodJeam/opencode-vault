@@ -1049,6 +1049,18 @@ var ChatView = class extends import_obsidian3.ItemView {
       var _a;
       this.stoppedByUser = true;
       (_a = this.currentProc) == null ? void 0 : _a.abort();
+      window.setTimeout(() => {
+        var _a2;
+        if (!this.running) return;
+        (_a2 = this.currentProc) == null ? void 0 : _a2.abort();
+        this.running = false;
+        this.pendingUser = null;
+        if (this.activityTimer !== null) {
+          clearInterval(this.activityTimer);
+          this.activityTimer = null;
+        }
+        this.setRunningUI(false);
+      }, 3e3);
     });
   }
   updateModelBtn() {
@@ -1132,8 +1144,10 @@ var ChatView = class extends import_obsidian3.ItemView {
         this.addErrorBubble(this.friendlyError(msg));
       },
       onDone: (code) => {
-        if (this.currentProc === proc) this.currentProc = null;
+        const isCurrent = this.currentProc === proc;
+        if (isCurrent) this.currentProc = null;
         bubble.finalize();
+        if (!isCurrent) return;
         this.running = false;
         this.setRunningUI(false);
         const failed = code !== 0 || this.hadStreamError;
@@ -1674,7 +1688,8 @@ ${this.context.content}
           clearInterval(this.activityTimer);
           this.activityTimer = null;
         }
-        if (this.currentProc === proc) this.currentProc = null;
+        const isCurrent = this.currentProc === proc;
+        if (isCurrent) this.currentProc = null;
         bubble.finalize();
         const snap = bubble.getSnapshot();
         const sid = this.viewSession;
@@ -1687,6 +1702,7 @@ ${this.context.content}
             cost: snap.cost
           });
         }
+        if (!isCurrent) return;
         this.pendingUser = null;
         if (code !== 0 && !this.hadStreamError && !this.stoppedByUser) {
           if (/session not found/i.test(this.lastStderr) && this.viewSession) {
@@ -1858,6 +1874,7 @@ var AssistantBubble = class {
     __publicField(this, "lastTokens");
     __publicField(this, "lastCost");
     __publicField(this, "renderTimer", null);
+    __publicField(this, "reasoningTimer", null);
     this.view.metaWithCopy(this.row, this.view.plugin.t("Opencode"), () => this.rawText);
     this.reasoningEl = this.row.createEl("details", { cls: "opencode-reasoning hidden" });
     const summary = this.reasoningEl.createEl("summary");
@@ -1904,8 +1921,21 @@ var AssistantBubble = class {
   setReasoning(text) {
     this.rawReasoning = text;
     this.reasoningEl.removeClass("hidden");
-    this.reasoningContent.textContent = text;
+    this.scheduleReasoningRender();
     this.view.scheduleScroll();
+  }
+  scheduleReasoningRender() {
+    if (this.reasoningTimer !== null) clearTimeout(this.reasoningTimer);
+    this.reasoningTimer = window.setTimeout(() => this.flushReasoningRender(), 120);
+  }
+  flushReasoningRender() {
+    if (this.reasoningTimer !== null) {
+      clearTimeout(this.reasoningTimer);
+      this.reasoningTimer = null;
+    }
+    const MAX = 5e4;
+    const shown = this.rawReasoning.length > MAX ? "\u2026 " + this.rawReasoning.slice(this.rawReasoning.length - MAX) : this.rawReasoning;
+    this.reasoningContent.textContent = shown;
   }
   addStep(step) {
     const showIO = this.view.plugin.settings.showToolIO;
@@ -2031,7 +2061,14 @@ var OpencodeRunner = class {
     __publicField(this, "resolvedBinary", null);
     __publicField(this, "resolvedBinaryTried", false);
     __publicField(this, "contextLimitCache", /* @__PURE__ */ new Map());
+    __publicField(this, "activeProcs", /* @__PURE__ */ new Set());
     this.plugin = plugin;
+  }
+  // Force-terminate every process started by this plugin (used when the plugin
+  // unloads or as a last-resort escape hatch for a stuck run).
+  killAll() {
+    for (const child of [...this.activeProcs]) this.killNow(child);
+    this.activeProcs.clear();
   }
   // Convert a document (PDF, Word, Excel, ...) to Markdown using anydoc
   // (https://github.com/firecrawl/anydoc). Returns the path of the .md file.
@@ -2063,13 +2100,20 @@ var OpencodeRunner = class {
   spawnCommand(bin, args, cwd) {
     const isWin = process.platform === "win32";
     const shell = isWin && !bin.includes("\\") && !bin.includes("/");
-    return (0, import_child_process.spawn)(bin, args, {
+    const child = (0, import_child_process.spawn)(bin, args, {
       cwd,
       shell,
       windowsHide: true,
       env: process.env,
       stdio: ["ignore", "pipe", "pipe"]
     });
+    this.trackProc(child);
+    return child;
+  }
+  trackProc(child) {
+    this.activeProcs.add(child);
+    child.once("close", () => this.activeProcs.delete(child));
+    child.once("error", () => this.activeProcs.delete(child));
   }
   // Context window size (tokens) of a model, parsed from `opencode models --verbose`.
   async getModelContextLimit(model) {
@@ -2332,16 +2376,41 @@ var OpencodeRunner = class {
     child.on("close", (code) => {
       cb.onDone(code != null ? code : -1);
     });
-    return { abort: () => this.killProc(child) };
+    return {
+      abort: () => this.killProc(child, true)
+    };
   }
-  killProc(child) {
+  // Kill the process (and its children) reliably. On Windows taskkill /F is
+  // used; Node's child.kill() is also called as a fallback. When `watch` is
+  // true the process is re-checked and re-killed until it actually closes, so
+  // a hung process cannot keep the chat permanently stuck.
+  killProc(child, watch = false) {
+    this.killNow(child);
+    if (!watch) return;
+    const deadline = Date.now() + 6e3;
+    const timer = setInterval(() => {
+      if (child.exitCode !== null || child.signalCode !== null || Date.now() > deadline) {
+        clearInterval(timer);
+        return;
+      }
+      this.killNow(child);
+    }, 1e3);
+  }
+  killNow(child) {
     if (!child || child.pid === void 0) return;
     try {
       if (process.platform === "win32") {
-        (0, import_child_process.spawn)("taskkill", ["/pid", String(child.pid), "/T", "/F"], { windowsHide: true });
+        (0, import_child_process.spawn)("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+          windowsHide: true,
+          stdio: "ignore"
+        });
       } else {
-        child.kill("SIGTERM");
+        child.kill("SIGKILL");
       }
+    } catch (e) {
+    }
+    try {
+      child.kill();
     } catch (e) {
     }
   }
@@ -2425,7 +2494,9 @@ var OpencodeRunner = class {
       // `opencode run` resta in hang senza produrre output su Windows.
       stdio: ["ignore", "pipe", "pipe"]
     };
-    return (0, import_child_process.spawn)(resolved != null ? resolved : bin, args, options);
+    const child = (0, import_child_process.spawn)(resolved != null ? resolved : bin, args, options);
+    this.trackProc(child);
+    return child;
   }
   resolveBinary(bin) {
     if (!this.resolvedBinaryTried) {
@@ -2598,6 +2669,7 @@ var OpencodePlugin = class extends import_obsidian5.Plugin {
     return leaf.view;
   }
   onunload() {
+    this.runner.killAll();
   }
   getHistory(sessionId) {
     var _a;

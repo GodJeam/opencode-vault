@@ -159,7 +159,9 @@ export default class OpencodePlugin extends Plugin {
   }
 
   onunload(): void {
-    // in-flight processes are killed by each view (onClose)
+    // Kill any process still alive so a closed chat cannot leave opencode run
+    // hanging in the background.
+    this.runner.killAll();
   }
 
   getHistory(sessionId: string): HistoryMessage[] {

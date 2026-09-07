@@ -67,9 +67,17 @@ export class OpencodeRunner {
   private resolvedBinary: string | null = null;
   private resolvedBinaryTried = false;
   private contextLimitCache = new Map<string, number>();
+  private activeProcs = new Set<ChildProcess>();
 
   constructor(plugin: OpencodePlugin) {
     this.plugin = plugin;
+  }
+
+  // Force-terminate every process started by this plugin (used when the plugin
+  // unloads or as a last-resort escape hatch for a stuck run).
+  killAll(): void {
+    for (const child of [...this.activeProcs]) this.killNow(child);
+    this.activeProcs.clear();
   }
 
   // Convert a document (PDF, Word, Excel, ...) to Markdown using anydoc
@@ -106,13 +114,21 @@ export class OpencodeRunner {
   private spawnCommand(bin: string, args: string[], cwd?: string): ChildProcess {
     const isWin = process.platform === "win32";
     const shell = isWin && !bin.includes("\\") && !bin.includes("/");
-    return spawn(bin, args, {
+    const child = spawn(bin, args, {
       cwd,
       shell,
       windowsHide: true,
       env: process.env,
       stdio: ["ignore", "pipe", "pipe"],
     });
+    this.trackProc(child);
+    return child;
+  }
+
+  private trackProc(child: ChildProcess): void {
+    this.activeProcs.add(child);
+    child.once("close", () => this.activeProcs.delete(child));
+    child.once("error", () => this.activeProcs.delete(child));
   }
 
   // Context window size (tokens) of a model, parsed from `opencode models --verbose`.
@@ -397,17 +413,44 @@ export class OpencodeRunner {
     child.on("close", (code) => {
       cb.onDone(code ?? -1);
     });
-    return { abort: () => this.killProc(child) };
+    return {
+      abort: () => this.killProc(child, true),
+    };
   }
 
-  killProc(child: ChildProcess): void {
+  // Kill the process (and its children) reliably. On Windows taskkill /F is
+  // used; Node's child.kill() is also called as a fallback. When `watch` is
+  // true the process is re-checked and re-killed until it actually closes, so
+  // a hung process cannot keep the chat permanently stuck.
+  killProc(child: ChildProcess, watch = false): void {
+    this.killNow(child);
+    if (!watch) return;
+    const deadline = Date.now() + 6000;
+    const timer = setInterval(() => {
+      if (child.exitCode !== null || child.signalCode !== null || Date.now() > deadline) {
+        clearInterval(timer);
+        return;
+      }
+      this.killNow(child);
+    }, 1000);
+  }
+
+  private killNow(child: ChildProcess): void {
     if (!child || child.pid === undefined) return;
     try {
       if (process.platform === "win32") {
-        spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { windowsHide: true });
+        spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], {
+          windowsHide: true,
+          stdio: "ignore",
+        });
       } else {
-        child.kill("SIGTERM");
+        child.kill("SIGKILL");
       }
+    } catch {
+      // ignore
+    }
+    try {
+      child.kill();
     } catch {
       // ignore
     }
@@ -502,7 +545,9 @@ export class OpencodeRunner {
       // `opencode run` resta in hang senza produrre output su Windows.
       stdio: ["ignore", "pipe", "pipe"],
     };
-    return spawn(resolved ?? bin, args, options);
+    const child = spawn(resolved ?? bin, args, options);
+    this.trackProc(child);
+    return child;
   }
 
   private resolveBinary(bin: string): string | null {
